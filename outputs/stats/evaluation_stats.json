@@ -1,0 +1,41 @@
+{
+  "evaluation_time_seconds": 0.403069,
+  "test_set_size": 964,
+  "num_test_classes": 260,
+  "metrics_summary": {
+    "rank_1_accuracy": 0.5062240663900415,
+    "rank_5_accuracy": 0.7655601659751037,
+    "rank_10_accuracy": 0.8350622406639004,
+    "eer": 0.0987577952479852,
+    "roc_auc": 0.9589399560979952,
+    "tar_at_far_0.01": 0.5950920245398773,
+    "tar_at_far_0.001": 0.2294478527607362,
+    "num_samples": 964,
+    "num_classes": 260
+  },
+  "score_statistics": {
+    "genuine": {
+      "mean": 0.8294231295585632,
+      "std": 0.19982312619686127,
+      "min": -0.7739512920379639,
+      "max": 0.9966644048690796,
+      "count": 1630
+    },
+    "impostor": {
+      "mean": 0.12875427305698395,
+      "std": 0.35190144181251526,
+      "min": -0.887794017791748,
+      "max": 0.995090126991272,
+      "count": 462536
+    },
+    "d_prime": 2.4486048221588135
+  },
+  "figures_generated": [
+    "roc",
+    "roc_semilog",
+    "cmc",
+    "scores",
+    "training",
+    "tsne"
+  ]
+}

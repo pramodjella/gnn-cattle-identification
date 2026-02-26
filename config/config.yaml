@@ -1,0 +1,115 @@
+# ============================================================
+# Biometric Cattle Identification - Configuration
+# ============================================================
+
+# --- Project ---
+project:
+  name: "Cattle-GNN-Biometric"
+  seed: 42
+  device: "auto"  # auto, cuda, cpu
+
+# --- Dataset ---
+dataset:
+  name: "BeefCattle_Muzzle"
+  zenodo_doi: "10.5281/zenodo.6324361"
+  zenodo_record_id: "6324361"
+  raw_dir: "data/raw"
+  processed_dir: "data/preprocessed"
+  graph_dir: "data/graphs"
+  split_ratios:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+  min_images_per_animal: 5  # Filter animals with too few images
+
+# --- Preprocessing ---
+preprocessing:
+  image_size: 256
+  # CLAHE
+  clahe:
+    clip_limit: 3.0
+    tile_grid_size: [8, 8]
+  # Segmentation (Otsu-based)
+  segmentation:
+    morph_kernel_size: 5
+    min_area_ratio: 0.1
+
+# --- Keypoint Detection ---
+keypoints:
+  method: "superpoint"  # superpoint, sift, orb
+  max_keypoints: 128
+  detection_threshold: 0.015
+  nms_radius: 4
+  descriptor_dim: 256
+
+# --- Graph Construction ---
+graph:
+  knn_k: 8  # K-nearest neighbors
+  use_relative_positions: true
+  normalize_positions: true
+  edge_feature_dim: 5  # dx, dy, distance, angle, relative_scale
+
+# --- GNN Model ---
+model:
+  # EdgeConv blocks
+  edge_conv:
+    num_layers: 3
+    hidden_dims: [256, 256, 512]
+    k_dynamic: 8  # KNN for dynamic graph recompuation
+    aggr: "max"
+    dropout: 0.3
+  # Topological Relation Module
+  trm:
+    num_heads: 4
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.2
+  # Global pooling and projection
+  embedding_dim: 256
+  projection_hidden: 512
+  use_batch_norm: true
+
+# --- Training ---
+training:
+  epochs: 15
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adam"  # adam, adamw, sgd
+  scheduler:
+    type: "cosine"  # cosine, step, plateau
+    warmup_epochs: 5
+    min_lr: 0.00001
+  # Triplet Loss
+  triplet:
+    margin: 0.5
+    mining_type: "hard"  # hard, semi-hard, random
+    samples_per_class: 4  # For PK sampling
+  # Early stopping
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+  # Gradient clipping
+  grad_clip: 1.0
+  # Checkpointing
+  save_every: 5
+  checkpoint_dir: "outputs/checkpoints"
+
+# --- Matching ---
+matching:
+  method: "cosine"  # cosine, lightglue
+  threshold: 0.7
+  top_k: 5  # For Rank-k evaluation
+
+# --- Evaluation ---
+evaluation:
+  far_points: [0.001, 0.01, 0.1]  # FAR thresholds for TAR
+  rank_k: [1, 5, 10]
+  num_folds: 5  # Cross-validation folds
+
+# --- Outputs ---
+outputs:
+  log_dir: "outputs/logs"
+  figure_dir: "outputs/figures"
+  stats_dir: "outputs/stats"
+  results_dir: "outputs/results"

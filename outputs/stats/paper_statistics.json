@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-02-26T13:55:05.679860",
+  "dataset": {
+    "name": "Beef Cattle Muzzle Database",
+    "source": "Zenodo (DOI: 10.5281/zenodo.6324361)",
+    "total_images": 4891,
+    "total_animals": 260,
+    "avg_per_animal": "18.8 \u00b1 10.0",
+    "train_size": 3312,
+    "val_size": 615,
+    "test_size": 964,
+    "split_ratio": "70/15/15"
+  },
+  "preprocessing": {
+    "image_size": "256 \u00d7 256",
+    "clahe_clip_limit": 3.0,
+    "contrast_before": "N/A",
+    "contrast_after": "N/A",
+    "contrast_improvement": "N/A",
+    "entropy_before": "N/A",
+    "entropy_after": "N/A",
+    "mask_coverage": "N/A"
+  },
+  "keypoints": {
+    "method": "SIFT (fallback)",
+    "descriptor_dim": 256,
+    "mean_keypoints": 122.43201799223063,
+    "std_keypoints": 20.275550913101533,
+    "total_keypoints": 598815,
+    "spatial_coverage": 0.8651481329697063
+  },
+  "graph": {
+    "knn_k": 8,
+    "mean_nodes": 122.43201799223063,
+    "mean_edges": 979.4001226742997,
+    "avg_degree": 7.987732570026579,
+    "graph_density": 0.07786554599887431
+  },
+  "model": {
+    "architecture": "CattleGNN (EdgeConv + TRM)",
+    "edge_conv_layers": 3,
+    "edge_conv_dims": "256 -> 256 -> 512",
+    "trm_heads": 4,
+    "trm_layers": 2,
+    "embedding_dim": 256,
+    "total_params": 3296772,
+    "trainable_params": 3296772
+  },
+  "training": {
+    "loss": "Triplet + Cross-Entropy",
+    "triplet_margin": 0.5,
+    "mining": "Online Hard Negative",
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "scheduler": "Cosine Annealing",
+    "epochs_trained": 15,
+    "training_time": 3065.124124,
+    "best_val_accuracy": 0.4422764182090759
+  },
+  "results": {
+    "rank_1": 0.5062240663900415,
+    "rank_5": 0.7655601659751037,
+    "rank_10": 0.8350622406639004,
+    "eer": 0.0987577952479852,
+    "roc_auc": 0.9589399560979952,
+    "tar_far_001": 0.5950920245398773,
+    "tar_far_0001": 0.2294478527607362,
+    "d_prime": 2.4486048221588135
+  }
+}

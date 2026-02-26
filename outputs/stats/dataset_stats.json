@@ -1,0 +1,92 @@
+{
+  "dataset_info": {
+    "name": "Beef Cattle Muzzle Database",
+    "source": "Zenodo (DOI: 10.5281/zenodo.6324361)",
+    "total_images": 4891,
+    "total_animals": 260,
+    "images_per_animal": {
+      "mean": 18.81153846153846,
+      "std": 9.978393077162618,
+      "min": 5,
+      "max": 70,
+      "median": 16.0
+    },
+    "distribution": {
+      "12": 22,
+      "14": 19,
+      "10": 18,
+      "18": 14,
+      "15": 13,
+      "16": 13,
+      "8": 12,
+      "13": 10,
+      "29": 9,
+      "25": 9,
+      "19": 9,
+      "26": 9,
+      "11": 8,
+      "6": 8,
+      "22": 7,
+      "24": 7,
+      "21": 6,
+      "7": 5,
+      "20": 5,
+      "32": 5,
+      "31": 4,
+      "30": 4,
+      "23": 4,
+      "27": 4,
+      "9": 4,
+      "17": 4,
+      "5": 4,
+      "34": 3,
+      "28": 3,
+      "36": 2,
+      "40": 2,
+      "38": 2,
+      "42": 2,
+      "45": 1,
+      "50": 1,
+      "70": 1,
+      "33": 1,
+      "39": 1,
+      "54": 1,
+      "53": 1,
+      "37": 1,
+      "35": 1,
+      "48": 1
+    }
+  },
+  "splits": {
+    "train": {
+      "num_images": 3312,
+      "num_animals": 260,
+      "images_per_animal": {
+        "mean": 12.738461538461538
+      }
+    },
+    "val": {
+      "num_images": 615,
+      "num_animals": 260,
+      "images_per_animal": {
+        "mean": 2.3653846153846154
+      }
+    },
+    "test": {
+      "num_images": 964,
+      "num_animals": 260,
+      "images_per_animal": {
+        "mean": 3.707692307692308
+      }
+    }
+  },
+  "paper_ready": {
+    "total_samples": 4891,
+    "num_classes": 260,
+    "avg_samples_per_class": "18.8 \u00b1 10.0",
+    "train_size": 3312,
+    "val_size": 615,
+    "test_size": 964,
+    "split_ratio": "70/15/15"
+  }
+}

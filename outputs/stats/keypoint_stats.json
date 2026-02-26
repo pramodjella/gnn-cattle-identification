@@ -1,0 +1,23 @@
+{
+  "total_processed": 4891,
+  "method": "SIFT (fallback)",
+  "max_keypoints_setting": 128,
+  "detection_threshold": 0.015,
+  "nms_radius": 4,
+  "keypoint_counts": {
+    "mean": 122.43201799223063,
+    "std": 20.275550913101533,
+    "min": 3,
+    "max": 131,
+    "median": 128.0,
+    "total": 598815
+  },
+  "detection_scores": {
+    "mean": 0.04852838646312039
+  },
+  "spatial_coverage": {
+    "mean": 0.8651481329697063,
+    "std": 0.09388211913796536
+  },
+  "processing_time_seconds": 143.42228
+}

@@ -1,0 +1,32 @@
+{
+  "total_processed": 4891,
+  "skipped_too_few_keypoints": 0,
+  "knn_k": 8,
+  "nodes_per_graph": {
+    "mean": 122.43201799223063,
+    "std": 20.275550913101533,
+    "min": 3,
+    "max": 131
+  },
+  "edges_per_graph": {
+    "mean": 979.4001226742997,
+    "std": 162.53122749190015,
+    "min": 6,
+    "max": 1048
+  },
+  "graph_density": {
+    "mean": 0.07786554599887431,
+    "std": 0.08993959753361154
+  },
+  "avg_degree": {
+    "mean": 7.987732570026579,
+    "std": 0.23288434120254858
+  },
+  "processing_time_seconds": 42.093399,
+  "num_classes": 260,
+  "graphs_per_split": {
+    "train": 3312,
+    "val": 615,
+    "test": 964
+  }
+}

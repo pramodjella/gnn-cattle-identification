@@ -1,0 +1,25 @@
+{
+  "pipeline_info": {
+    "processing_time_seconds": 1.688269,
+    "total_processed": 4891,
+    "total_failed": 0,
+    "image_size": 256
+  },
+  "roi_extraction": {
+    "total_processed": 0,
+    "original_sizes": [],
+    "aspect_ratios": []
+  },
+  "clahe_enhancement": {
+    "total_processed": 0,
+    "contrast_before": [],
+    "contrast_after": [],
+    "entropy_before": [],
+    "entropy_after": []
+  },
+  "segmentation": {
+    "total_processed": 0,
+    "mask_coverage": [],
+    "num_components": []
+  }
+}

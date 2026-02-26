@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (large files - download via script)
+data/raw/
+data/preprocessed/
+data/graphs/
+
+# Model checkpoints (large files)
+outputs/checkpoints/*.pt
+
+# Generated outputs (reproducible via pipeline)
+outputs/figures/
+outputs/results/
+outputs/logs/
+
+# Keep stats for paper reference
+# outputs/stats/ is NOT ignored
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc
+*.zip
+*.tar.gz
+*.log

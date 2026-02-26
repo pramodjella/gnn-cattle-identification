@@ -1,0 +1,81 @@
+
+% Table 1: Dataset Statistics
+\begin{table}[h]
+\centering
+\caption{Dataset Statistics}
+\label{tab:dataset}
+\begin{tabular}{lr}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Dataset & Beef Cattle Muzzle Database \\
+Total Images & 4891 \\
+Total Animals & 260 \\
+Avg Images/Animal & 18.8 ± 10.0 \\
+Train Set & 3312 \\
+Validation Set & 615 \\
+Test Set & 964 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% Table 2: Preprocessing Statistics
+\begin{table}[h]
+\centering
+\caption{Preprocessing Pipeline Statistics}
+\label{tab:preprocessing}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Metric} & \textbf{Before} & \textbf{After} \\
+\midrule
+RMS Contrast & N/A & N/A \\
+Shannon Entropy & N/A & N/A \\
+Mask Coverage & -- & N/A \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% Table 3: Model Architecture
+\begin{table}[h]
+\centering
+\caption{CattleGNN Architecture Details}
+\label{tab:architecture}
+\begin{tabular}{lr}
+\toprule
+\textbf{Component} & \textbf{Details} \\
+\midrule
+Input Features & SuperPoint 256-d descriptors \\
+EdgeConv Layers & 3 (dims: 256, 256, 512) \\
+Dynamic KNN & k = 12 \\
+TRM Heads & 4 \\
+TRM Layers & 2 \\
+Global Pooling & Mean + Max (512-d) \\
+Embedding Dim & 256 \\
+Total Parameters & 3296772 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% Table 4: Identification Results
+\begin{table}[h]
+\centering
+\caption{Biometric Identification Performance}
+\label{tab:results}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Rank-1 Accuracy & 50.62\% \\
+Rank-5 Accuracy & 76.56\% \\
+Rank-10 Accuracy & 83.51\% \\
+EER & 9.88\% \\
+ROC AUC & 0.9589 \\
+TAR @ FAR=1\% & 59.51\% \\
+TAR @ FAR=0.1\% & 22.94\% \\
+d' (d-prime) & 2.4486 \\
+\bottomrule
+\end{tabular}
+\end{table}
