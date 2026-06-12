@@ -1,83 +1,86 @@
 # 🐄 Biometric Cattle Identification via Deep Learning & Graph Neural Networks
 
-A complete pipeline for **individual cattle identification** using muzzle print patterns, combining **SuperPoint keypoint detection**, **KNN graph construction**, **EdgeConv-based Graph Neural Networks**, and **LightGlue-inspired matching**.
+A complete pipeline for **individual cattle identification** using muzzle print patterns, combining **learned keypoints (Kornia-DISK)**, **Graph Neural Networks (GATv2 + EdgeConv)**, **EfficientNet CNNs**, and **bilinear feature map sampling**.
 
-> **Paper-ready**: Generates publication-quality figures (ROC, CMC, t-SNE, score distributions) and LaTeX tables for international conferences (WACV, ICPR, ICIP, Computers & Electronics in Agriculture).
+This project provides a comprehensive comparative benchmark of pure CNN, Graph Neural Network (GNN), Hybrid CNN-GNN, and Prototype GNN architectures on the Zenodo Beef Cattle Muzzle Database (260 animals, 4,891 images). It generates publication-quality figures (ROC, CMC, t-SNE, explainability maps) and LaTeX tables suitable for precision agriculture journals such as *Computers and Electronics in Agriculture*.
 
 ---
 
-## Architecture
+## 🚀 Performance Benchmark
 
-```
-Raw Muzzle Image
-       │
-       ▼
-┌──────────────────┐
-│  Preprocessing   │  ROI Extraction → CLAHE → Otsu Segmentation
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│    SuperPoint     │  Keypoint Detection + 256-d Descriptors
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│  KNN Graph (k=12)│  Nodes = Keypoints, Edges = Spatial Neighbors
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│    CattleGNN     │  EdgeConv × 3 → TRM (GAT) → Mean+Max Pool → 256-d Embedding
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│    Matching      │  Cosine Similarity + Hungarian + Threshold Calibration
-└──────────────────┘
-```
+Below is the consolidated performance on the test split (964 images) across all implemented proposed architectures and literature baselines:
 
-## Project Structure
+| Model | Rank-1 (%) | Rank-5 (%) | EER (%) | ROC AUC | Description / Reference |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Ensemble (CNN TTA + Hybrid)** | **96.1** | **98.1** | **0.78** | **0.9995** | Proposed SOTA (Blended weights: CNN=0.95, Hybrid=0.05) |
+| CNN (with TTA) | 95.4 | 97.4 | 2.70 | 0.9961 | EfficientNet-B4 + ArcFace with Test-Time Augmentation |
+| CNN (EfficientNet-B4) | 95.4 | 97.4 | 2.70 | 0.9961 | Baseline EfficientNet-B4 with ArcFace Loss |
+| VGG-16 Baseline | 95.1 | 97.7 | 1.23 | 0.9993 | Re-implementation of Bello et al. (2020) |
+| ResNet-50 Baseline | 94.6 | 97.3 | 2.14 | 0.9971 | Re-implementation of Qin et al. (2021) |
+| Hybrid CNN-GNN | 92.0 | 96.7 | 1.85 | 0.9979 | Proposed (Bilinear Feature Sampling + EdgeConv + TRM) |
+| ProtoN (Prototype Node GNN) | 91.6 | 94.8 | 1.17 | 0.9982 | Proposed GNN with Cross-Graph Alignment Loss |
+| GNN v4 (GATv2 - Enhanced) | 91.6 | 94.4 | 1.48 | 0.9937 | 4-layer GATv2 with Virtual Node (Enhanced) |
+| GNN v3 (GATv2 + VN) | 91.5 | 95.0 | 1.87 | 0.9954 | 4-layer GATv2 with Virtual Node |
+| GNN++ (CNN Patches) | 78.3 | 86.2 | 7.81 | 0.9730 | MobileNetV3 patch features on GNN nodes |
+| GNN+ (Kornia DISK) | 72.0 | 84.2 | 11.17 | 0.9516 | DISK descriptor features on GNN nodes |
+
+---
+
+## 📁 Project Structure
 
 ```
 gnn-cattle-identification/
 ├── config/
-│   └── config.yaml              # All hyperparameters
+│   └── config.yaml              # Hyperparameters (tuned settings)
 ├── data/
 │   ├── raw/                     # Original dataset (downloaded)
-│   ├── preprocessed/            # After CLAHE, segmentation
-│   └── graphs/                  # Serialized PyG graph data
+│   └── preprocessed/            # After CLAHE, segmentation
 ├── src/
 │   ├── preprocessing/           # ROI, CLAHE, segmentation
-│   ├── features/                # SuperPoint, KNN graph builder
+│   ├── features/                # Learned DISK, KNN graph builder
 │   ├── models/                  # EdgeConv, TRM, CattleGNN, losses
-│   ├── training/                # Dataset, trainer, triplet mining
-│   ├── matching/                # LightGlue matcher, verification
-│   ├── evaluation/              # Metrics, visualization
-│   └── utils.py                 # Config, logging, reproducibility
+│   ├── training/                # Dataset loaders, trainer, augmentation
+│   └── evaluation/              # Metrics, visualization
 ├── scripts/
+│   ├── baselines/
+│   │   ├── train_vgg_baseline.py    # Bello et al. (2020) VGG-16 baseline
+│   │   └── train_resnet_baseline.py # Qin et al. (2021) ResNet-50 baseline
+│   ├── figures/
+│   │   └── generate_paper_figures.py # Main figures generator (vector PDF + PNG)
 │   ├── 01_download_data.py      # Download Zenodo dataset
 │   ├── 02_preprocess.py         # ROI + CLAHE + segmentation
-│   ├── 03_extract_keypoints.py  # SuperPoint extraction
+│   ├── 03_extract_keypoints.py  # Learned keypoints extraction
 │   ├── 04_build_graphs.py       # KNN graph construction
-│   ├── 05_train.py              # GNN training (triplet + CE loss)
-│   ├── 06_evaluate.py           # Full biometric evaluation
-│   └── 07_generate_paper_stats.py  # LaTeX tables & statistics
+│   ├── train_cnn.py             # EfficientNet-B4 + ArcFace training
+│   ├── train_hybrid.py          # Feature map sampled Hybrid GNN training
+│   ├── train_proton.py          # ProtoN GNN training
+│   ├── cross_validation.py      # Stratified 5-Fold cross-validation loops
+│   ├── compare_models.py        # Compiles comparison tables & main curves
+│   ├── statistical_tests.py     # Pairwise McNemar tests & Bootstrap CIs
+│   ├── visualize_gradcam.py     # CNN Grad-CAM explainability generator
+│   └── visualize_gnn_attention.py # TRM Attention heatmap visualizer
 ├── outputs/
-│   ├── checkpoints/             # Model weights
-│   ├── logs/                    # Training logs
-│   ├── figures/                 # Paper-quality plots
-│   └── stats/                   # JSON statistics per phase
+│   ├── figures/                 # Paper-ready plots (CMC, ROC, training, t-SNE)
+│   ├── stats/                   # JSON statistics per model & ablation results
+│   └── results/                 # Publication MD report
+├── paper_draft.md               # Full manuscript draft for journal submission
+├── research_notes.md            # Quick reference local notes file
 ├── requirements.txt
 └── README.md
 ```
 
-## Installation
+---
+
+## ⚙️ Installation
 
 ### Prerequisites
 - Python 3.9+
-- CUDA-capable GPU (recommended; CPU fallback supported)
+- CUDA-capable GPU (highly recommended; fallbacks to CPU)
 
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/gnn-cattle-identification.git
+git clone https://github.com/pramodjella/gnn-cattle-identification.git
 cd gnn-cattle-identification
 
 # Create virtual environment
@@ -91,111 +94,89 @@ pip install torch-geometric
 pip install -r requirements.txt
 ```
 
-> **Note**: Install PyTorch and PyG first with CUDA support matching your GPU drivers. See [PyTorch](https://pytorch.org/) and [PyG](https://pyg.org/install/) installation guides.
+---
 
-## Usage
+## 🛠️ Usage Workflow
 
-Run the pipeline scripts sequentially:
-
+### 1. Data Preparation
 ```bash
-# Phase 1: Download dataset (4923 images, 268 cattle)
+# Download dataset (4,891 images, 260 cattle)
 python scripts/01_download_data.py
 
-# Phase 2: Preprocess (ROI + CLAHE + Segmentation)
+# Preprocess (ROI extraction + CLAHE + Otsu segmentation)
 python scripts/02_preprocess.py
 
-# Phase 3: Extract SuperPoint keypoints & descriptors
+# Extract learned DISK keypoints & descriptors
 python scripts/03_extract_keypoints.py
 
-# Phase 4: Build KNN graphs
+# Build KNN graphs (k=8)
 python scripts/04_build_graphs.py
-
-# Phase 5-6: Train CattleGNN (triplet loss + CrossEntropy)
-python scripts/05_train.py
-
-# Phase 7-8: Evaluate & generate paper figures
-python scripts/06_evaluate.py
-python scripts/07_generate_paper_stats.py
 ```
 
-## Dataset
+### 2. Tuned Model Training
+```bash
+# Train EfficientNet-B4 CNN
+python scripts/train_cnn.py
 
-**Beef Cattle Muzzle Database** from Zenodo  
-- **DOI**: [10.5281/zenodo.6324361](https://zenodo.org/records/6324361)  
-- **Size**: 4,923 muzzle images from 268 beef cattle  
-- **Split**: 70% train / 15% val / 15% test (stratified by animal)
+# Train ProtoN GNN
+python scripts/train_proton.py
 
-The download script will attempt to fetch the dataset automatically. If it fails, manually download the zip from Zenodo and place it in `data/raw/`.
-
-## Model Architecture
-
-### CattleGNN
-
-| Component | Details |
-|-----------|---------|
-| **Input** | SuperPoint descriptors (256-d) per keypoint |
-| **EdgeConv** | 3 layers of Dynamic EdgeConv with residual connections |
-| **TRM** | Multi-head Graph Attention (4 heads, 2 layers) with GraphNorm |
-| **Pooling** | Global Mean + Max pooling → 512-d |
-| **Projection** | FC → 256-d L2-normalized embedding |
-| **Classification** | Optional FC head for auxiliary CrossEntropy loss |
-
-### Training
-
-| Parameter | Value |
-|-----------|-------|
-| Loss | Triplet (margin=0.5) + CE (weight=0.5) |
-| Mining | Online hard negative mining |
-| Optimizer | Adam (lr=1e-3, weight_decay=1e-4) |
-| Scheduler | Cosine annealing with warm restarts |
-| Augmentation | Random keypoint dropout (10%) |
-| Early Stopping | Patience=15, min_delta=0.001 |
-
-## Evaluation Metrics
-
-The evaluation pipeline computes:
-
-- **Identification**: Rank-1, Rank-5, Rank-10 accuracy, CMC curves
-- **Verification**: TAR @ FAR={0.1%, 1%, 10%}, EER, ROC AUC
-- **Score Analysis**: Genuine/impostor distributions, d-prime separability
-- **Embeddings**: t-SNE visualization of learned representations
-
-## Configuration
-
-All hyperparameters are in `config/config.yaml`. Key settings:
-
-```yaml
-model:
-  edge_conv:
-    num_layers: 3
-    hidden_dims: [256, 256, 512]
-    k_dynamic: 12
-  trm:
-    num_heads: 4
-    num_layers: 2
-  embedding_dim: 256
-
-training:
-  epochs: 100
-  batch_size: 32
-  learning_rate: 0.001
-  triplet:
-    margin: 0.5
-    mining_type: hard
+# Train Hybrid CNN-GNN (bilinear sampling + EdgeConv + TRM)
+python scripts/train_hybrid.py
 ```
 
-## Citation
+### 3. Prior Art Baseline Training
+```bash
+# Train VGG-16 Baseline (Bello et al. 2020)
+python scripts/baselines/train_vgg_baseline.py
 
-If you use this work, please cite:
+# Train ResNet-50 Baseline (Qin et al. 2021)
+python scripts/baselines/train_resnet_baseline.py
+```
+
+### 4. Cross-Validation & Statistical Tests
+```bash
+# Run Stratified 5-Fold Cross-Validation on top 3 models
+python scripts/cross_validation.py
+
+# Run McNemar's significance tests and Bootstrap Confidence Intervals
+python scripts/statistical_tests.py
+```
+
+### 5. Generate Figures & LaTeX Tables
+```bash
+# Generate model comparison report
+python scripts/compare_models.py
+
+# Generate publication-quality figures (CMC, ROC, training, t-SNE)
+python scripts/figures/generate_paper_figures.py
+
+# Generate explainability maps (Grad-CAM and GNN Attention)
+python scripts/visualize_gradcam.py
+python scripts/visualize_gnn_attention.py
+```
+
+---
+
+## 📊 Visualizations
+
+All generated visuals are saved under `outputs/figures/`:
+- **CMC & ROC Curves**: Evaluates identification and verification rates.
+- **t-SNE Embeddings**: Clusters represent individual cattle in the learned feature spaces.
+- **Dual Explainability**: Visualizes Grad-CAM activations on raw images side-by-side with TRM GNN attention weights.
+
+---
+
+## 📝 Citation
+
+If you use this work in your research, please cite:
 
 ```bibtex
-@misc{cattle-gnn-biometric,
-  title={Biometric Cattle Identification via Graph Neural Networks on Muzzle Print Patterns},
+@article{muzzle-biometrics-gnn,
+  title={Graph-Augmented Deep Learning for Cattle Muzzle Biometric Identification: A Comparative Study of CNN, Hybrid, and Graph Neural Network Architectures},
+  author={Jella, Pramod},
+  journal={Computers and Electronics in Agriculture},
   year={2026},
-  note={SuperPoint keypoints + EdgeConv GNN + LightGlue matching pipeline},
+  note={DISK keypoints + Dynamic EdgeConv + TRM + ArcFace loss pipeline}
 }
 ```
-
-## License
-
-This project is for academic research purposes.
