@@ -144,7 +144,7 @@ class TripletLossWithMining(nn.Module):
             semi_hard_mask = (n_dists > p_dist) & (n_dists < p_dist + self.margin)
             
             if semi_hard_mask.sum() > 0:
-                hardest_semi = n_dists[semi_hard_mask].max()
+                hardest_semi = n_dists[semi_hard_mask].min()
                 loss = F.relu(p_dist - hardest_semi + self.margin)
                 losses.append(loss)
             else:
@@ -244,7 +244,7 @@ class CombinedLoss(nn.Module):
             ce_loss = self.ce_loss(logits, labels)
             total_loss = triplet_loss + self.ce_weight * ce_loss
         else:
-            ce_loss = torch.tensor(0.0)
+            ce_loss = torch.tensor(0.0, device=embeddings.device)
             total_loss = triplet_loss
         
         stats = {

@@ -113,6 +113,7 @@ class BiometricMetrics:
     
     def _compute_cmc(self, sim_matrix, labels):
         """Compute Cumulative Match Characteristic curve."""
+        sim_matrix = sim_matrix.copy()
         n = len(labels)
         
         # Set diagonal to -inf (no self-matching)
@@ -209,6 +210,7 @@ class BiometricMetrics:
     
     def _compute_per_class_accuracy(self, sim_matrix, labels):
         """Compute per-class Rank-1 accuracy."""
+        sim_matrix = sim_matrix.copy()
         np.fill_diagonal(sim_matrix, -np.inf)
         
         unique_labels = np.unique(labels)

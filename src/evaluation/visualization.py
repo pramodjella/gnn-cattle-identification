@@ -170,18 +170,24 @@ class ResultVisualizer:
         
         # Apply t-SNE
         tsne = TSNE(n_components=2, perplexity=30, random_state=42, 
-                     max_iter=1000, learning_rate='auto', init='pca')
+                     n_iter=1000, learning_rate='auto', init='pca')
         embedded_2d = tsne.fit_transform(embeddings_np)
         
         fig, ax = plt.subplots(figsize=(10, 8))
         
         unique_labels = np.unique(labels_np)
-        cmap = plt.cm.get_cmap('tab20', len(unique_labels))
+        try:
+            cmap = matplotlib.colormaps.get_cmap('tab20')
+        except AttributeError:
+            try:
+                cmap = plt.colormaps.get_cmap('tab20')
+            except AttributeError:
+                cmap = plt.cm.get_cmap('tab20')
         
         for i, label in enumerate(unique_labels):
             mask = labels_np == label
             ax.scatter(embedded_2d[mask, 0], embedded_2d[mask, 1],
-                      c=[cmap(i)], s=30, alpha=0.7, label=f'Animal {label}')
+                      c=[cmap(i % 20)], s=30, alpha=0.7, label=f'Animal {label}')
         
         ax.set_xlabel('t-SNE Dimension 1')
         ax.set_ylabel('t-SNE Dimension 2')

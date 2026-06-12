@@ -206,6 +206,22 @@ class RandomKeypointDropout:
         return data
 
 
+class TransformListDataset(torch.utils.data.Dataset):
+    """Wrapper to apply transforms dynamically on list elements."""
+    def __init__(self, data_list, transform=None):
+        self.data_list = data_list
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.data_list)
+        
+    def __getitem__(self, idx):
+        data = self.data_list[idx]
+        if self.transform is not None:
+            data = self.transform(data.clone())
+        return data
+
+
 def create_data_loaders(graph_dir, config, augment_train=True):
     """
     Create data loaders for train/val/test splits.
@@ -239,6 +255,7 @@ def create_data_loaders(graph_dir, config, augment_train=True):
         else:
             transform = None
         
+        dataset = TransformListDataset(data_list, transform)
         batch_size = config['training']['batch_size']
         
         if split == 'train':
@@ -247,20 +264,23 @@ def create_data_loaders(graph_dir, config, augment_train=True):
             pk_config = config['training'].get('triplet', {})
             k_per_class = pk_config.get('samples_per_class', 4)
             p_classes = max(2, batch_size // k_per_class)
-            
+
             sampler = PKSampler(labels, p=p_classes, k=k_per_class)
-            
+
             loader = DataLoader(
-                data_list, batch_size=batch_size,
+                dataset, batch_size=batch_size,
                 sampler=sampler, drop_last=True,
-                num_workers=0,  # Windows compatibility
+                num_workers=0,
+                pin_memory=True,
             )
         else:
             loader = DataLoader(
-                data_list, batch_size=batch_size,
+                dataset, batch_size=batch_size,
                 shuffle=False, drop_last=False,
                 num_workers=0,
+                pin_memory=True,
             )
+
         
         loaders[split] = loader
         print(f"[INFO] {split.capitalize()} loader: {len(data_list)} graphs, batch_size={batch_size}")

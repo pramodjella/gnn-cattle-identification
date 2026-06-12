@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-26T13:55:05.679860",
+  "generated_at": "2026-06-10T20:13:48.869599",
   "dataset": {
     "name": "Beef Cattle Muzzle Database",
     "source": "Zenodo (DOI: 10.5281/zenodo.6324361)",
@@ -22,19 +22,19 @@
     "mask_coverage": "N/A"
   },
   "keypoints": {
-    "method": "SIFT (fallback)",
+    "method": "Kornia-DISK",
     "descriptor_dim": 256,
-    "mean_keypoints": 122.43201799223063,
-    "std_keypoints": 20.275550913101533,
-    "total_keypoints": 598815,
-    "spatial_coverage": 0.8651481329697063
+    "mean_keypoints": 127.08260069515437,
+    "std_keypoints": 7.112649515911824,
+    "total_keypoints": 621561,
+    "spatial_coverage": 0.608633025393021
   },
   "graph": {
     "knn_k": 8,
-    "mean_nodes": 122.43201799223063,
-    "mean_edges": 979.4001226742997,
-    "avg_degree": 7.987732570026579,
-    "graph_density": 0.07786554599887431
+    "mean_nodes": 127.08260069515437,
+    "mean_edges": 1016.6571253322429,
+    "avg_degree": 7.998773257002658,
+    "graph_density": 0.06436114902570363
   },
   "model": {
     "architecture": "CattleGNN (EdgeConv + TRM)",
@@ -43,8 +43,8 @@
     "trm_heads": 4,
     "trm_layers": 2,
     "embedding_dim": 256,
-    "total_params": 3296772,
-    "trainable_params": 3296772
+    "total_params": 4282884,
+    "trainable_params": 4282884
   },
   "training": {
     "loss": "Triplet + Cross-Entropy",
@@ -53,18 +53,18 @@
     "optimizer": "Adam",
     "learning_rate": 0.001,
     "scheduler": "Cosine Annealing",
-    "epochs_trained": 15,
-    "training_time": 3065.124124,
-    "best_val_accuracy": 0.4422764182090759
+    "epochs_trained": 100,
+    "training_time": 1642.500729,
+    "best_val_accuracy": 0.707317054271698
   },
   "results": {
-    "rank_1": 0.5062240663900415,
-    "rank_5": 0.7655601659751037,
-    "rank_10": 0.8350622406639004,
-    "eer": 0.0987577952479852,
-    "roc_auc": 0.9589399560979952,
-    "tar_far_001": 0.5950920245398773,
-    "tar_far_0001": 0.2294478527607362,
-    "d_prime": 2.4486048221588135
+    "rank_1": 0.799792531120332,
+    "rank_5": 0.8848547717842323,
+    "rank_10": 0.9107883817427386,
+    "eer": 0.06252375009961086,
+    "roc_auc": 0.9813356003673958,
+    "tar_far_001": 0.8294478527607362,
+    "tar_far_0001": 0.5987730061349693,
+    "d_prime": 3.2551794052124023
   }
 }

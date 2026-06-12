@@ -1,0 +1,113 @@
+{
+  "bootstrap_ci": {
+    "CNN": {
+      "rank1": 0.9543568464730291,
+      "ci_lower": 0.9408713692946058,
+      "ci_upper": 0.966804979253112
+    },
+    "Hybrid": {
+      "rank1": 0.9201244813278008,
+      "ci_lower": 0.9024896265560166,
+      "ci_upper": 0.9367219917012448
+    },
+    "ProtoN": {
+      "rank1": 0.9159751037344398,
+      "ci_lower": 0.8983402489626556,
+      "ci_upper": 0.9336099585062241
+    },
+    "GNN v3": {
+      "rank1": 0.9149377593360996,
+      "ci_lower": 0.8973029045643154,
+      "ci_upper": 0.9325726141078838
+    },
+    "GNN v4": {
+      "rank1": 0.9159751037344398,
+      "ci_lower": 0.8983402489626556,
+      "ci_upper": 0.9336099585062241
+    }
+  },
+  "mcnemar_tests": {
+    "CNN vs Hybrid": {
+      "chi2": 31.03030303030303,
+      "p_value": 2.5403120142884262e-08,
+      "significant": true,
+      "effect_size_h": 0.1424498551508,
+      "n01": 0,
+      "n10": 33
+    },
+    "CNN vs ProtoN": {
+      "chi2": 35.027027027027025,
+      "p_value": 3.2516061726496955e-09,
+      "significant": true,
+      "effect_size_h": 0.15757877139965348,
+      "n01": 0,
+      "n10": 37
+    },
+    "CNN vs GNN v3": {
+      "chi2": 36.026315789473685,
+      "p_value": 1.9467060601806844e-09,
+      "significant": true,
+      "effect_size_h": 0.16130754292530414,
+      "n01": 0,
+      "n10": 38
+    },
+    "CNN vs GNN v4": {
+      "chi2": 35.027027027027025,
+      "p_value": 3.2516061726496955e-09,
+      "significant": true,
+      "effect_size_h": 0.15757877139965348,
+      "n01": 0,
+      "n10": 37
+    },
+    "Hybrid vs ProtoN": {
+      "chi2": 1.3333333333333333,
+      "p_value": 0.24821307898992026,
+      "significant": false,
+      "effect_size_h": 0.015128916248853486,
+      "n01": 0,
+      "n10": 3
+    },
+    "Hybrid vs GNN v3": {
+      "chi2": 2.25,
+      "p_value": 0.13361440253771584,
+      "significant": false,
+      "effect_size_h": 0.01885768777450414,
+      "n01": 0,
+      "n10": 4
+    },
+    "Hybrid vs GNN v4": {
+      "chi2": 1.3333333333333333,
+      "p_value": 0.24821307898992026,
+      "significant": false,
+      "effect_size_h": 0.015128916248853486,
+      "n01": 0,
+      "n10": 3
+    },
+    "ProtoN vs GNN v3": {
+      "chi2": 0.0,
+      "p_value": 1.0,
+      "significant": false,
+      "effect_size_h": 0.0037287715256506537,
+      "n01": 0,
+      "n10": 0
+    },
+    "ProtoN vs GNN v4": {
+      "chi2": 0.0,
+      "p_value": 1.0,
+      "significant": false,
+      "effect_size_h": 0.0,
+      "n01": 0,
+      "n10": 0
+    },
+    "GNN v3 vs GNN v4": {
+      "chi2": 0.0,
+      "p_value": 1.0,
+      "significant": false,
+      "effect_size_h": 0.0037287715256506537,
+      "n01": 0,
+      "n10": 0
+    }
+  },
+  "n_test_samples": 964,
+  "significance_threshold": 0.05
+}

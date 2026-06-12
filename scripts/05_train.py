@@ -39,6 +39,19 @@ def main():
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"[INFO] Using device: {device}")
+
+    # ── RTX 5070 / Blackwell GPU optimisations ────────────────────────
+    if device.type == 'cuda':
+        # Allow TF32 on Ampere+ (Blackwell supports it natively, ~10% speedup)
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        # benchmark=True: cuDNN auto-tunes kernel for repeated input sizes
+        torch.backends.cudnn.benchmark = True
+        torch.cuda.empty_cache()
+        props = torch.cuda.get_device_properties(0)
+        print(f"[INFO] GPU: {props.name}")
+        print(f"[INFO] VRAM: {props.total_memory / 1024**3:.1f} GB")
+        print(f"[INFO] CUDA Capability: sm_{props.major}{props.minor}")
     
     # Paths
     graph_dir = str(PROJECT_ROOT / config['dataset']['graph_dir'])

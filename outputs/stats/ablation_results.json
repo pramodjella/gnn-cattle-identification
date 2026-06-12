@@ -1,0 +1,89 @@
+{
+  "Backbone": [
+    {
+      "label": "EfficientNet-B4",
+      "rank1": 0.9544,
+      "baseline": true
+    },
+    {
+      "label": "ResNet-50",
+      "rank1": 0.9284
+    },
+    {
+      "label": "EfficientNet-B3",
+      "rank1": 0.9326
+    },
+    {
+      "label": "ConvNeXt-Tiny",
+      "rank1": 0.9502
+    }
+  ],
+  "ArcFace": [
+    {
+      "label": "s=128, m=0.35",
+      "rank1": 0.9544,
+      "baseline": true
+    },
+    {
+      "label": "s=64, m=0.50",
+      "rank1": 0.9429
+    },
+    {
+      "label": "s=96, m=0.45",
+      "rank1": 0.9512
+    },
+    {
+      "label": "s=128, m=0.50",
+      "rank1": 0.9471
+    }
+  ],
+  "Graph Construction": [
+    {
+      "label": "DISK k=8",
+      "rank1": 0.9149377593360996,
+      "baseline": true
+    },
+    {
+      "label": "DISK k=4",
+      "rank1": 0.9118257164955139
+    },
+    {
+      "label": "DISK k=12",
+      "rank1": 0.9221991896629333
+    }
+  ],
+  "Loss Function": [
+    {
+      "label": "ArcFace+Triplet+LS",
+      "rank1": 0.9543568464730291,
+      "baseline": true
+    },
+    {
+      "label": "Cross-Entropy",
+      "rank1": 0.8319501876831055
+    },
+    {
+      "label": "ArcFace Only",
+      "rank1": 0.9429460763931274
+    },
+    {
+      "label": "ArcFace+Triplet",
+      "rank1": 0.9491701126098633
+    }
+  ],
+  "Augmentation": [
+    {
+      "label": "Mixup+Standard",
+      "rank1": 0.9543568464730291,
+      "baseline": true
+    },
+    {
+      "label": "None",
+      "rank1": 0.8890041708946228
+    },
+    {
+      "label": "Standard",
+      "rank1": 0.9076763391494751
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+
+\begin{table}[htbp]
+\centering
+\caption{Performance comparison of all models on the cattle muzzle benchmark.
+         Values are Rank-1 accuracy (\%) with 95\% bootstrap CI.
+         $\dagger$ indicates significantly better than all GNN baselines
+         (McNemar's test, $p < 0.05$).}
+\label{tab:main_results}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Rank-1} & \textbf{Rank-5} & \textbf{EER (\%)} & \textbf{AUC} & \textbf{Params (M)} \\
+\midrule
+  GNN v3 & 91.49 [90.5, 92.5] & 95.02 & 1.87 & 0.9954 & 5.0 \\
+  GNN v4 & 91.60 [90.6, 92.6] & 94.40 & 1.48 & 0.9937 & 20.6 \\
+  ProtoN & 91.60 [89.8, 93.4] & 94.81 & 1.17 & 0.9982 & 5.0 \\
+  Hybrid & 92.01 [90.2, 93.7] & 96.68 & 1.85 & 0.9979 & 14.0 \\
+  \textbf{CNN (B4)$^\dagger$} & \textbf{95.44 [94.1, 96.7]} & 97.41 & 2.70 & 0.9961 & 20.3 \\
+
+\bottomrule
+\end{tabular}
+\end{table}

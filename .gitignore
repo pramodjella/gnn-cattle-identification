@@ -20,17 +20,17 @@ env/
 *.swo
 
 # Data (large files - download via script)
-data/raw/
-data/preprocessed/
-data/graphs/
+data/
+db_data/
 
 # Model checkpoints (large files)
-outputs/checkpoints/*.pt
+*.pt
 
 # Generated outputs (reproducible via pipeline)
 outputs/figures/
 outputs/results/
 outputs/logs/
+outputs/*search_results*.json
 
 # Keep stats for paper reference
 # outputs/stats/ is NOT ignored

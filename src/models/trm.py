@@ -15,7 +15,7 @@ Key insight: The TRM captures implicit topological rules like
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv, GraphNorm
+from torch_geometric.nn import GATConv
 
 
 class TopologicalRelationModule(nn.Module):
@@ -77,7 +77,7 @@ class TopologicalRelationModule(nn.Module):
             )
             
             out_channels = hidden_dim * heads if concat else hidden_dim
-            self.norms.append(GraphNorm(out_channels))
+            self.norms.append(nn.LayerNorm(out_channels))
             self.dropouts.append(nn.Dropout(dropout))
         
         # Output dimension
@@ -113,11 +113,8 @@ class TopologicalRelationModule(nn.Module):
             else:
                 x = self.layers[i](x, edge_index)
             
-            # Graph normalization
-            if batch is not None:
-                x = self.norms[i](x, batch)
-            else:
-                x = self.norms[i](x)
+            # Normalization
+            x = self.norms[i](x)
             
             x = F.relu(x)
             x = self.dropouts[i](x)

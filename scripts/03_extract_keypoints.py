@@ -1,17 +1,23 @@
 """
 Script 03: Keypoint Extraction
 ================================
-Extracts SuperPoint keypoints and 256-dim descriptors from all
-preprocessed muzzle images. Saves keypoint data and visualizations.
+Extracts keypoints and 256-dim descriptors from all preprocessed muzzle
+images using the configured Kornia backend.
+
+Supported backends (set via config keypoints.method or --backend CLI arg):
+  disk        – Kornia DISK neural detector    [DEFAULT]
+  superpoint  – Kornia KeyNet + AffNet + HardNet8
+  dedode      – Kornia DeDoDe
+  sift        – OpenCV SIFT (classical baseline)
 
 Input:  data/preprocessed/images/
 Output: data/preprocessed/keypoints/ (per-image .npz files)
 Stats:  outputs/stats/keypoint_stats.json
 """
 
+import argparse
 import os
 import sys
-import json
 import cv2
 import numpy as np
 from pathlib import Path
@@ -24,86 +30,112 @@ from src.utils import load_config, save_stats, ensure_dirs, setup_logging, set_s
 from src.features.superpoint import SuperPointExtractor
 
 
+# Backend name normalisation
+_BACKEND_ALIASES = {
+    'superpoint':  'superpoint',
+    'disk':        'disk',
+    'kornia':      'disk',
+    'kornia-disk': 'disk',
+    'dedode':      'dedode',
+    'sift':        'sift',
+    'orb':         'sift',
+}
+
+
+def resolve_backend(config: dict, cli_backend) -> str:
+    if cli_backend:
+        return _BACKEND_ALIASES.get(cli_backend.lower(), 'disk')
+    cfg_method = config.get('keypoints', {}).get('method', 'disk').lower()
+    return _BACKEND_ALIASES.get(cfg_method, 'disk')
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Phase 3: Keypoint Extraction")
+    parser.add_argument('--backend', type=str, default=None,
+                        choices=['disk', 'superpoint', 'dedode', 'sift'],
+                        help="Keypoint backend (overrides config)")
+    parser.add_argument('--force', action='store_true',
+                        help="Re-extract even if .npz files already exist")
+    args = parser.parse_args()
+
     print("=" * 70)
     print("PHASE 3: Keypoint Detection & Description")
     print("=" * 70)
-    
+
     config = load_config()
     set_seed(config['project']['seed'])
     logger = setup_logging(config['outputs']['log_dir'], "03_extract_keypoints")
-    
+
     processed_dir = PROJECT_ROOT / config['dataset']['processed_dir']
-    stats_dir = PROJECT_ROOT / config['outputs']['stats_dir']
-    figure_dir = PROJECT_ROOT / config['outputs']['figure_dir']
-    
+    stats_dir     = PROJECT_ROOT / config['outputs']['stats_dir']
+    figure_dir    = PROJECT_ROOT / config['outputs']['figure_dir']
+
     kp_dir = processed_dir / "keypoints"
     ensure_dirs(str(kp_dir), str(stats_dir), str(figure_dir / "keypoints"))
-    
-    # Initialize SuperPoint
+
+    # Resolve backend
+    backend   = resolve_backend(config, args.backend)
     kp_config = config['keypoints']
+
+    print(f"[INFO] Backend: {backend.upper()}")
     extractor = SuperPointExtractor(
         max_keypoints=kp_config['max_keypoints'],
         detection_threshold=kp_config['detection_threshold'],
         nms_radius=kp_config['nms_radius'],
+        backend=backend,
     )
-    
+
     # Find all preprocessed images
     image_dir = processed_dir / "images"
-    mask_dir = processed_dir / "masks"
-    
+    mask_dir  = processed_dir / "masks"
+
     all_images = []
     for split_dir in image_dir.iterdir():
         if split_dir.is_dir():
             for animal_dir in split_dir.iterdir():
                 if animal_dir.is_dir():
                     for img_path in animal_dir.glob("*.png"):
-                        # Corresponding mask
-                        mask_path = mask_dir / split_dir.name / animal_dir.name / img_path.name
+                        mask_path = (mask_dir / split_dir.name
+                                     / animal_dir.name / img_path.name)
                         all_images.append({
                             'image_path': img_path,
                             'mask_path': mask_path if mask_path.exists() else None,
-                            'split': split_dir.name,
+                            'split':     split_dir.name,
                             'animal_id': animal_dir.name,
                         })
-    
+
     print(f"[INFO] Found {len(all_images)} preprocessed images")
-    
+
     if len(all_images) == 0:
         print("[WARNING] No preprocessed images found. Run 02_preprocess.py first.")
         return
-    
+
     # Extract keypoints
     sample_vis_count = 0
-    max_vis = 20  # Save 20 sample visualizations
-    
+    max_vis = 20
+
     with Timer("Keypoint Extraction") as timer:
-        for item in tqdm(all_images, desc="Extracting keypoints"):
+        for item in tqdm(all_images, desc=f"Extracting [{backend}]"):
             img_path = item['image_path']
-            
-            # Output path
-            kp_out_dir = kp_dir / item['split'] / item['animal_id']
+
+            kp_out_dir  = kp_dir / item['split'] / item['animal_id']
             ensure_dirs(str(kp_out_dir))
             kp_out_path = kp_out_dir / f"{img_path.stem}.npz"
-            
-            # Skip if already extracted
-            if kp_out_path.exists():
+
+            if kp_out_path.exists() and not args.force:
                 continue
-            
-            # Load image and mask
+
             image = cv2.imread(str(img_path))
-            mask = None
-            if item['mask_path'] and item['mask_path'].exists():
+            mask  = None
+            if item['mask_path']:
                 mask = cv2.imread(str(item['mask_path']), cv2.IMREAD_GRAYSCALE)
-            
+
             if image is None:
                 logger.warning(f"Failed to load: {img_path}")
                 continue
-            
-            # Extract keypoints
+
             result = extractor.extract(image, mask=mask)
-            
-            # Save keypoint data
+
             np.savez_compressed(
                 str(kp_out_path),
                 keypoints=result['keypoints'],
@@ -112,27 +144,30 @@ def main():
                 animal_id=item['animal_id'],
                 image_path=str(img_path),
             )
-            
-            # Save sample visualizations
+
             if sample_vis_count < max_vis and len(result['keypoints']) > 0:
-                vis = extractor.visualize(
+                extractor.visualize(
                     image, result['keypoints'], result['scores'],
-                    output_path=str(figure_dir / "keypoints" / f"kp_{sample_vis_count:03d}_{item['animal_id']}.png")
+                    output_path=str(
+                        figure_dir / "keypoints"
+                        / f"kp_{sample_vis_count:03d}_{item['animal_id']}.png"
+                    ),
                 )
                 sample_vis_count += 1
-    
+
     # Save stats
     kp_stats = extractor.get_stats()
     kp_stats['processing_time_seconds'] = timer.elapsed
-    
+    kp_stats['backend'] = backend
+
     stats_path = str(stats_dir / "keypoint_stats.json")
     save_stats(kp_stats, stats_path)
-    
-    # Print summary
+
     print(f"\n{'=' * 70}")
     print("KEYPOINT DETECTION STATISTICS")
     print(f"{'=' * 70}")
     print(f"  Method:              {kp_stats['method']}")
+    print(f"  Backend:             {backend}")
     print(f"  Total Images:        {kp_stats['total_processed']}")
     print(f"  Processing Time:     {timer.elapsed:.1f}s")
     print(f"  Keypoints/Image:     {kp_stats['keypoint_counts']['mean']:.1f} ± {kp_stats['keypoint_counts']['std']:.1f}")
@@ -141,8 +176,8 @@ def main():
     print(f"  Total Keypoints:     {kp_stats['keypoint_counts']['total']}")
     print(f"  Spatial Coverage:    {kp_stats['spatial_coverage']['mean']:.1%}")
     print(f"{'=' * 70}")
-    print(f"\n[SUCCESS] [OK] Phase 3 complete! Keypoints saved to {kp_dir}")
-    
+    print(f"\n[SUCCESS] Phase 3 complete! Keypoints saved to {kp_dir}")
+
     return kp_stats
 
 

@@ -1,0 +1,52 @@
+{
+  "comparison": {
+    "disk": {
+      "method_label": "Kornia DISK",
+      "avg_keypoints": 128.0,
+      "std_keypoints": 0.0,
+      "avg_coverage": 0.6066770935058594,
+      "avg_score": 79.31556060791016,
+      "speed_ms_per_image": 21.57055765700837,
+      "learned": true
+    },
+    "superpoint": {
+      "method_label": "Kornia SuperPoint (KeyNet+HardNet)",
+      "avg_keypoints": 127.29666666666667,
+      "std_keypoints": 6.067563120579977,
+      "avg_coverage": 0.7914139984051386,
+      "avg_score": 1765.1320721435548,
+      "speed_ms_per_image": 192.52155532905212,
+      "learned": true
+    },
+    "dedode": {
+      "method_label": "Kornia DeDoDe",
+      "avg_keypoints": 128.0,
+      "std_keypoints": 0.0,
+      "avg_coverage": 0.6066770935058594,
+      "avg_score": 79.31556060791016,
+      "speed_ms_per_image": 10.116723338142037,
+      "learned": true
+    },
+    "sift": {
+      "method_label": "SIFT (Classical)",
+      "avg_keypoints": 122.65,
+      "std_keypoints": 20.2440320423905,
+      "avg_coverage": 0.8789488310615222,
+      "avg_score": 0.028022466413676738,
+      "speed_ms_per_image": 16.2390453228727,
+      "learned": false
+    }
+  },
+  "advantages_of_kornia": [
+    "Kornia DISK: +4.4% more keypoints than SIFT",
+    "Kornia SuperPoint (KeyNet+HardNet): +3.8% more keypoints than SIFT",
+    "Kornia DeDoDe: +4.4% more keypoints than SIFT"
+  ],
+  "pairwise_overlap": {
+    "sift_vs_disk": 0.12658044499105545,
+    "sift_vs_superpoint": 0.2780349023553966,
+    "sift_vs_dedode": 0.12658044499105545
+  },
+  "num_images_evaluated": 300,
+  "device": "cuda"
+}

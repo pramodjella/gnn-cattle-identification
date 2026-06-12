@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  # ─── PostgreSQL 16 + pgvector ─────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cattle_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cattle_user
+      POSTGRES_PASSWORD: cattle_pass
+      POSTGRES_DB: cattle_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cattle_user -d cattle_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI Backend ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cattle_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cattle_user:cattle_pass@postgres:5432/cattle_db
+      MODEL_PATH: /app/model_checkpoint/best_model.pt
+      UPLOAD_DIR: /app/uploads
+      SIMILARITY_THRESHOLD: "0.70"
+      MAX_KEYPOINTS: "128"
+    volumes:
+      - ./backend:/app
+      - ../../outputs/checkpoints:/app/model_checkpoint:ro
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads_data:

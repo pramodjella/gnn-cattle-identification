@@ -6,7 +6,7 @@
 project:
   name: "Cattle-GNN-Biometric"
   seed: 42
-  device: "auto"  # auto, cuda, cpu
+  device: "cuda"  # RTX 5070 – force CUDA
 
 # --- Dataset ---
 dataset:
@@ -35,8 +35,10 @@ preprocessing:
     min_area_ratio: 0.1
 
 # --- Keypoint Detection ---
+# backend options: disk (Kornia DISK, default) | superpoint (KeyNet+HardNet)
+#                  dedode (DeDoDe-G) | sift (OpenCV classical)
 keypoints:
-  method: "superpoint"  # superpoint, sift, orb
+  method: "disk"          # disk | superpoint | dedode | sift
   max_keypoints: 128
   detection_threshold: 0.015
   nms_radius: 4
@@ -54,7 +56,7 @@ model:
   # EdgeConv blocks
   edge_conv:
     num_layers: 3
-    hidden_dims: [256, 256, 512]
+    hidden_dims: [256, 512, 512]
     k_dynamic: 8  # KNN for dynamic graph recompuation
     aggr: "max"
     dropout: 0.3
@@ -66,33 +68,36 @@ model:
     dropout: 0.2
   # Global pooling and projection
   embedding_dim: 256
-  projection_hidden: 512
+  projection_hidden: 1024
   use_batch_norm: true
 
 # --- Training ---
 training:
-  epochs: 15
-  batch_size: 32
-  learning_rate: 0.001
+  epochs: 100
+  batch_size: 128          # 2× larger batch — stable on RTX 5070 8GB
+  learning_rate: 0.0004    # Adjusted for batch size 128
   weight_decay: 0.0001
-  optimizer: "adam"  # adam, adamw, sgd
+  optimizer: "adamw"
   scheduler:
-    type: "cosine"  # cosine, step, plateau
+    type: "cosine"
     warmup_epochs: 5
     min_lr: 0.00001
-  # Triplet Loss
+  # Triplet Loss — PK Sampler: 32 classes × 8 samples = 256 per batch
   triplet:
     margin: 0.5
-    mining_type: "hard"  # hard, semi-hard, random
-    samples_per_class: 4  # For PK sampling
+    mining_type: "hard"
+    samples_per_class: 8
+  # Mixed precision — RTX 5070 Blackwell natively supports bfloat16
+  use_amp: true            # bfloat16: ~2× throughput, no NaN with proper clipping
+  compile_model: false     # torch.compile needs Triton (not on Windows)
   # Early stopping
   early_stopping:
-    patience: 10
+    patience: 25
     min_delta: 0.001
   # Gradient clipping
   grad_clip: 1.0
   # Checkpointing
-  save_every: 5
+  save_every: 10
   checkpoint_dir: "outputs/checkpoints"
 
 # --- Matching ---
@@ -113,3 +118,143 @@ outputs:
   figure_dir: "outputs/figures"
   stats_dir: "outputs/stats"
   results_dir: "outputs/results"
+
+# ============================================================
+# THREE-WAY COMPARISON — Model-Specific Configs
+# ============================================================
+
+# --- ArcFace Loss (shared hyperparameters) ---
+arcface:
+  margin: 0.35         # Researcher rec: smaller margin (0.35) handles high intra-class livestock variation
+  scale: 128.0         # Researcher rec: larger scale sharpens embedding at test time for 260 classes
+  triplet_weight: 0.1  # Auxiliary triplet loss weight
+  triplet_margin: 0.3
+  label_smoothing: 0.05 # Prevents overconfidence on noisy cattle labels
+
+# --- GNN+ (Improved GNN with ArcFace) ---
+gnn_plus:
+  epochs: 150
+  batch_size: 128
+  learning_rate: 0.0004
+  weight_decay: 0.0001
+  checkpoint_dir: "outputs/gnn_plus"
+  use_amp: true
+  edge_conv_k_dynamic: 12
+  early_stopping:
+    patience: 30
+    min_delta: 0.001
+
+# --- CNN Baseline (EfficientNet-B4 + ArcFace) --- [TUNED for 98%+]
+cnn:
+  epochs: 150
+  batch_size: 16
+  backbone_lr: 0.00003   # 3x higher — B4 needs faster fine-tuning
+  head_lr: 0.001
+  weight_decay: 0.00005  # Less regularization for larger model
+  dropout: 0.35          # Slightly less dropout for B4
+  embedding_dim: 512     # Larger embedding space (was 256)
+  backbone: "efficientnet_b4"  # Upgraded from B3 (1792-d vs 1536-d)
+  checkpoint_dir: "outputs/cnn"
+  use_amp: true
+  samples_per_class: 8
+  use_mixup: true        # Mixup augmentation alpha=0.2
+  mixup_alpha: 0.2
+  use_swa: true          # Stochastic Weight Averaging from epoch 100
+  swa_start_epoch: 100
+  swa_lr: 0.000005
+  use_tta: true          # Test-Time Augmentation at inference
+  tta_flips: true
+  arcface_scale: 128.0   # Researcher: larger scale sharpens embedding; 128 for 260-class cattle
+  arcface_margin: 0.35   # Researcher: m=0.35 handles high intra-class livestock variation
+  early_stopping:
+    patience: 30
+    min_delta: 0.0005
+
+# --- Hybrid CNN-GNN (Novel Proposed Architecture) --- [TUNED for 98%+]
+hybrid:
+  epochs: 200            # More Phase-1 cached training (from 150)
+  finetune_epochs: 50    # Longer Phase-2 E2E fine-tuning (from 25)
+  batch_size: 16
+  backbone_lr: 0.00001   # 2x higher (from 5e-6)
+  head_lr: 0.001         # 2x higher (from 5e-4)
+  weight_decay: 0.0001
+  embedding_dim: 512     # Match CNN embedding dim
+  checkpoint_dir: "outputs/hybrid"
+  use_amp: true
+  samples_per_class: 4
+  use_enhanced_aug: true # Use EnhancedGraphAugmentation
+  arcface_scale: 96.0    # Hybrid: slightly lower than CNN
+  arcface_margin: 0.35
+  early_stopping:
+    patience: 40
+    min_delta: 0.0005
+
+# --- GNN++ (All improvements: CNN patches + residual EdgeConv + attention pooling) ---
+gnn_plus_v2:
+  epochs: 150
+  batch_size: 64
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  warmup_epochs: 8
+  use_amp: true
+  checkpoint_dir: "outputs/gnn_plus_v2"
+  patience: 35
+  min_delta: 0.001
+  # Architecture
+  input_dim: 834          # CNN(576) + SIFT(256) + pos(2)
+  edge_conv_dims: [512, 512, 512, 1024]
+  edge_conv_k: 16
+  trm_hidden: 512
+  trm_heads: 8
+  trm_layers: 3
+  embedding_dim: 256
+  projection_hidden: 1024
+  dropout: 0.2
+
+# --- GNN v3 (State-of-the-Art: GATv2 + VirtualNode + GraphNorm) --- [TUNED]
+gnn_v3:
+  epochs: 300            # More epochs — GNNs need longer training
+  batch_size: 128
+  learning_rate: 0.0004  # Slightly higher LR
+  weight_decay: 0.00005  # Less weight decay
+  warmup_epochs: 15      # Longer warmup
+  use_amp: true
+  checkpoint_dir: "outputs/gnn_v3"
+  patience: 50           # More patience for GNN
+  min_delta: 0.0005
+  swa_start_epoch: 200
+  swa_lr: 0.000005
+  # Architecture — wider and deeper
+  input_dim: 256          # DISK descriptors
+  hidden_dim: 192         # Per GATv2 head output (x4 heads = 768, from 512)
+  num_heads: 4
+  num_layers: 4           # One more layer (from 3)
+  edge_attr_dim: 5        # dx, dy, dist, angle, rel_scale
+  edge_enc_dim: 96        # Wider edge encoder (from 64)
+  fusion_dim: 768         # Wider fusion (from 512)
+  embedding_dim: 256
+  projection_hidden: 512  # Wider projection (from 256)
+  dropout: 0.10           # Less dropout (from 0.15)
+
+# --- ProtoN (Prototype Node GNN) --- [TUNED]
+proton:
+  epochs: 200
+  batch_size: 128
+  learning_rate: 0.0004
+  weight_decay: 0.00005
+  warmup_epochs: 20
+  use_amp: true
+  checkpoint_dir: "outputs/proton"
+  patience: 50
+  min_delta: 0.0005
+  # Loss tuning — was 0.5, too dominant
+  align_weight: 0.2
+  temperature: 0.07
+  # Architecture
+  hidden_dim: 128
+  num_heads: 4
+  num_layers: 4           # One more layer
+  fusion_dim: 512
+  embedding_dim: 256
+  dropout: 0.12
+

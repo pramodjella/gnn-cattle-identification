@@ -15,6 +15,7 @@ import json
 import time
 import torch
 import torch.nn as nn
+from torch.amp import GradScaler, autocast
 import numpy as np
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, ReduceLROnPlateau
@@ -41,8 +42,30 @@ class Trainer:
         self.loss_fn = loss_fn
         self.config = config
         self.device = device
-        
+
         train_cfg = config['training']
+
+        # ── Mixed-precision (AMP) ─────────────────────────────────────────
+        self.use_amp = train_cfg.get('use_amp', False) and torch.cuda.is_available()
+        # RTX 5070 (Blackwell sm_120) natively supports bfloat16 — no overflow, no GradScaler needed
+        if self.use_amp and torch.cuda.is_bf16_supported():
+            self.amp_dtype = torch.bfloat16
+            self.use_scaler = False   # bf16 is numerically stable; GradScaler unnecessary
+        else:
+            self.amp_dtype = torch.float16
+            self.use_scaler = self.use_amp  # fp16 needs scaler
+        self.scaler = GradScaler('cuda', enabled=self.use_scaler)
+        if self.use_amp:
+            print(f"[INFO] AMP enabled: {self.amp_dtype} | GradScaler: {self.use_scaler}")
+
+        # ── torch.compile ─────────────────────────────────────────────────
+        compile_model = train_cfg.get('compile_model', False)
+        if compile_model and hasattr(torch, 'compile') and torch.cuda.is_available():
+            try:
+                self.model = torch.compile(self.model, mode='reduce-overhead')
+                print("[INFO] torch.compile enabled (mode=reduce-overhead)")
+            except Exception as e:
+                print(f"[WARN] torch.compile failed: {e}. Continuing without compilation.")
         
         # Optimizer
         if train_cfg['optimizer'] == 'adamw':
@@ -101,32 +124,37 @@ class Trainer:
         num_batches = 0
         
         for batch in train_loader:
-            batch = batch.to(self.device)
-            
-            self.optimizer.zero_grad()
-            
-            # Forward pass
-            output = self.model(batch)
-            embeddings = output['embedding']
-            labels = batch.y
-            
-            # Compute loss
-            if hasattr(self.loss_fn, 'ce_weight') and 'logits' in output:
-                loss, stats = self.loss_fn(embeddings, output['logits'], labels)
-            else:
-                loss, stats = self.loss_fn(embeddings, labels)
-            
-            # Backward pass
+            batch = batch.to(self.device, non_blocking=True)
+
+            self.optimizer.zero_grad(set_to_none=True)
+
+            # ── Forward pass with AMP (bfloat16 on Blackwell) ─────────────
+            with autocast(device_type='cuda', dtype=self.amp_dtype, enabled=self.use_amp):
+                output = self.model(batch)
+                embeddings = output['embedding']
+                labels = batch.y
+
+                if hasattr(self.loss_fn, 'ce_weight') and 'logits' in output:
+                    loss, stats = self.loss_fn(embeddings, output['logits'], labels)
+                else:
+                    loss, stats = self.loss_fn(embeddings, labels)
+
+            # ── Backward ──────────────────────────────────────────────────
             if loss.requires_grad:
-                loss.backward()
-                
-                # Gradient clipping
                 grad_clip = self.config['training'].get('grad_clip', 1.0)
-                if grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
-                
-                self.optimizer.step()
-            
+                if self.use_scaler:          # fp16 path
+                    self.scaler.scale(loss).backward()
+                    if grad_clip > 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:                        # bf16 / fp32 path — no scaler needed
+                    loss.backward()
+                    if grad_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                    self.optimizer.step()
+
             total_loss += loss.item()
             total_active += stats.get('active_triplets', 0)
             total_triplets += stats.get('total_triplets', 0)
@@ -153,7 +181,7 @@ class Trainer:
         all_labels = []
         
         for batch in val_loader:
-            batch = batch.to(self.device)
+            batch = batch.to(self.device, non_blocking=True)
             
             output = self.model(batch)
             embeddings = output['embedding']
@@ -215,15 +243,30 @@ class Trainer:
         """
         if epochs is None:
             epochs = self.config['training']['epochs']
-        
+
         early_stop_cfg = self.config['training'].get('early_stopping', {})
         patience = early_stop_cfg.get('patience', 15)
         min_delta = early_stop_cfg.get('min_delta', 0.001)
-        
-        print(f"\n{'=' * 60}")
-        print(f"Starting Training: {epochs} epochs")
-        print(f"Device: {self.device}")
-        print(f"{'=' * 60}\n")
+
+        # GPU info banner
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            props = torch.cuda.get_device_properties(0)
+            total_vram = props.total_memory / 1024**3
+            torch.cuda.reset_peak_memory_stats()
+            torch.cuda.empty_cache()
+            print(f"\n{'=' * 60}")
+            print(f"Starting Training: {epochs} epochs")
+            print(f"Device: {self.device} | GPU: {gpu_name} ({total_vram:.1f} GB VRAM)")
+            print(f"CUDA Capability: sm_{props.major}{props.minor} | SM Count: {props.multi_processor_count}")
+            print(f"AMP: {self.use_amp} dtype={getattr(self, 'amp_dtype', 'fp32')} | GradScaler: {self.use_scaler}")
+            print(f"Batch size: {self.config['training']['batch_size']}")
+            print(f"{'=' * 60}\n")
+        else:
+            print(f"\n{'=' * 60}")
+            print(f"Starting Training: {epochs} epochs")
+            print(f"Device: {self.device}")
+            print(f"{'=' * 60}\n")
         
         for epoch in range(1, epochs + 1):
             self.epoch = epoch
@@ -256,6 +299,13 @@ class Trainer:
             self.history['epoch_times'].append(epoch_time)
             
             # Print progress
+            if torch.cuda.is_available():
+                used_vram = torch.cuda.memory_allocated(0) / 1024**3
+                peak_vram = torch.cuda.max_memory_allocated(0) / 1024**3
+                vram_str = f" | VRAM: {used_vram:.2f}/{torch.cuda.get_device_properties(0).total_memory/1024**3:.1f}GB (peak {peak_vram:.2f}GB)"
+                torch.cuda.reset_peak_memory_stats()  # reset each epoch for per-epoch peaks
+            else:
+                vram_str = ""
             print(
                 f"Epoch {epoch:3d}/{epochs} | "
                 f"Train Loss: {train_stats['loss']:.4f} | "
@@ -263,7 +313,8 @@ class Trainer:
                 f"R1 Acc: {val_stats['rank1_accuracy']:.4f} | "
                 f"Active: {train_stats['active_ratio']:.2f} | "
                 f"LR: {current_lr:.6f} | "
-                f"Time: {epoch_time:.1f}s",
+                f"Time: {epoch_time:.1f}s"
+                + vram_str,
                 flush=True
             )
             
