@@ -9,18 +9,43 @@ mis-calibration** problem, not a feature problem — and it is recoverable **lab
 retraining**, by adaptive score normalisation. This is **modality-agnostic** (muzzle ridges,
 faces, coat patterns) and **model-agnostic** (our CNN and the SOTA foundation model MegaDescriptor).
 
-## Evidence so far (`scripts/wildlife_probe.py`)
-Cross-domain protocol = clean gallery vs corrupted probes; corruption = controlled domain shift.
+## NATURAL (non-synthetic) domain shift — strongest evidence (2026-07-07)
+`scripts/wildlife_natural_shift.py` splits gallery/probe by real metadata (not corruption):
+- **IPanda50 by VIDEO (session shift):** random/in-domain EER 1.41% -> natural/cross-video 2.63%
+  (a REAL +1.22pt gap, ~2x), S-norm recovers to 2.29% (**-13% relative**). Genuine ecological shift.
+- **MacaqueFaces by DATE (temporal):** natural 0.08% <= random 0.20% -> NO gap. MegaDescriptor is
+  trained on macaques and fully robust to a ~1yr time gap (honest negative).
+Takeaway: MegaDescriptor is robust to natural shift on species it knows; gaps appear under
+cross-session/video shift (IPanda) or synthetic corruption (all). S-norm recovers where a gap exists.
 
-| Model / data | Modality | Shift | Baseline EER | +S-norm EER | Recovery |
+## Accumulated evidence — S-norm recovers cross-domain re-ID broadly
+Across modalities, 2 foundation models + our CNN, and 3 shift types (cross-dataset, synthetic
+corruption, natural cross-session). Consistent direction; never harmful under no-shift.
+
+| Model | Data / modality | Shift type | Baseline EER | +S-norm | Recovery |
 | :-- | :-- | :-- | :--: | :--: | :--: |
 | Cattle CNN (ours) | muzzle | cross-dataset A | 14.8% | 11.4% | −23% |
 | Cattle CNN (ours) | muzzle | cross-dataset B | 12.2% | 7.9% | −35% |
-| MegaDescriptor-L | macaque face | spatter | 6.24% | 5.34% | −14% |
-| MegaDescriptor-L | Friesian coat | spatter | 2.77% | 1.15% | **−59%** |
+| MegaDescriptor-L | macaque face | corruption (spatter) | 6.24% | 5.34% | −14% |
+| MegaDescriptor-L | Friesian coat | corruption (spatter) | 2.77% | 1.15% | −59% |
+| MegaDescriptor-L | IPanda pattern | **natural (cross-video)** | 2.63% | 2.29% | −13% |
+| **DINOv2 (general)** | IPanda pattern | natural (cross-video) | 40.8% | 35.3% | −13% |
+| **DINOv2 (general)** | IPanda pattern | in-domain (random) | 38.0% | 31.4% | −17% |
 
-Consistent direction, never harmful under no-shift. AdaBN (feature-level) is unreliable — the
-fix lives at the **score** level.
+**SIGNIFICANCE (bootstrap 95% CI on baseline-minus-S-norm EER) — the honest sharpener:**
+- DINOv2 IPanda cross-video: recovery +5.5pt, CI [+3.99,+7.19] => **SIGNIFICANT**.
+- MegaDescriptor IPanda cross-video: recovery -0.04pt, CI [-0.33,+0.14] => **n.s.** (EER only 2.6%,
+  too small to matter — the "13% relative" is noise at that scale).
+
+REFINED THESIS (conditional, measurable, review-proof): **S-norm significantly recovers
+cross-domain verification WHEN the score distribution is meaningfully mis-calibrated** — i.e. weak/
+general backbones (DINOv2) or strong backbones under SEVERE shift (corruption, large-EER cross-
+dataset). On a well-calibrated strong backbone under MILD natural shift (MegaDescriptor, EER ~2%),
+the effect is negligible/insignificant. The benefit SCALES with baseline mis-calibration. AdaBN
+(feature-level) is unreliable; the fix lives at the SCORE level. This conditional claim is more
+defensible than "S-norm always helps."
+TODO: bootstrap-CI the cattle cross-dataset (-23/-35%) and MegaDescriptor corruption cases to
+confirm those are in the significant regime (large EER => expected yes).
 
 ## Novelty status: SETTLED with statistical rigor — no mechanism significantly beats S-norm (2026-07-07)
 Across 3 datasets/modalities (Friesian coat, macaque face, IPanda50 pattern) on MegaDescriptor,
