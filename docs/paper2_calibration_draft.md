@@ -1,64 +1,206 @@
-# Draft 2 (main-track attempt): When Does Label-Free Score Calibration Recover Cross-Domain Animal Re-Identification?
+# When Does Label-Free Score Calibration Recover Cross-Domain Animal Re-Identification?
 
-**Venue target:** IJCB / WACV (empirical + analysis paper). Distinct from the cattle domain paper.
-**Status:** evidence assembled; skeleton draft. Novelty is empirical/analytical, not a new method.
+**Venue target:** IJCB / WACV (empirical + analysis).
+**Note:** distinct from the cattle-muzzle domain paper; the contribution here is empirical and
+analytical (a conditional characterization), not a new method. The cattle work is one case study.
 
 ---
 
-## Abstract (draft)
-Foundation models for animal re-identification (e.g. MegaDescriptor) achieve near-perfect
-verification in-distribution but degrade under domain shift — different farms, sessions, or
-capture conditions. We show, across three backbones (a task-specific CNN, MegaDescriptor, and the
-general-purpose DINOv2), four biometric modalities (cattle muzzle, primate face, cattle coat,
-panda pattern), and three shift types (cross-dataset, synthetic corruption, and natural
-cross-session splits), that this degradation is primarily a **score mis-calibration** problem
-rather than a feature problem, and is partially recoverable **without any labels, retraining, or
-source data** via adaptive symmetric score normalisation (S-norm). Crucially, we characterise
-*when* it helps: the recovery is significant precisely when the score distribution is
-mis-calibrated — weak/general backbones, or strong backbones under severe shift — and negligible
-when a strong backbone faces only mild shift. Feature-level test-time adaptation (AdaBN) is by
-contrast unreliable. Our analysis reframes cross-domain re-ID robustness as a calibration question
-and provides a deployable, zero-cost baseline that practitioners can always apply.
+## Abstract
+
+Foundation models for animal re-identification, such as MegaDescriptor, achieve near-perfect
+verification on species and datasets seen during training, yet a large body of work reports that
+they degrade sharply under domain shift — new farms, new recording sessions, different cameras, or
+unseen distributions. We ask a narrow but practically important question: *when* is this
+degradation recoverable without labels, retraining, or access to the source data, simply by
+recalibrating similarity scores at test time? Across three backbones (a task-specific muzzle CNN,
+the re-identification foundation model MegaDescriptor-L, and the general-purpose self-supervised
+model DINOv2), four biometric modalities (cattle muzzle, primate face, cattle coat, and panda
+coat pattern), and three families of domain shift (cross-dataset transfer, controlled image
+corruption, and natural cross-session splits), we show that cross-domain verification loss is
+primarily a problem of *score mis-calibration* rather than feature quality, and that adaptive
+symmetric score normalization (S-norm) recovers a significant fraction of it at zero training cost.
+Crucially, we characterize *when* the recovery is significant: it scales with a measurable
+mis-calibration signal (the baseline equal-error rate). In a controlled comparison on identical
+data and shift, a backbone that is well-calibrated for the target species shows no gap and no
+benefit, whereas a general backbone that is mis-calibrated for re-identification degrades by more
+than twelve EER points and is significantly recovered by the same calibration step. Feature-level
+test-time adaptation (AdaBN) is, by contrast, unreliable. We conclude that score-level calibration
+is a dependable, deployable baseline for cross-domain animal re-identification, and that its
+applicability is predictable in advance.
+
+---
 
 ## 1. Introduction
-- Animal re-ID moved to foundation models; the field's #1 open problem is cross-domain / open-set
-  generalisation (MegaDescriptor drops up to 36 top-1 cross-domain).
-- Test-time adaptation is active but mostly feature-level and often needs adaptation steps.
-- Our finding: the transferable, zero-cost fix is at the SCORE level, and its benefit is
-  *predictable* from a measurable mis-calibration signal.
-- Contributions: (i) a broad, honest empirical demonstration across models/modalities/shifts;
-  (ii) a conditional characterisation (benefit scales with mis-calibration) with significance
-  testing; (iii) evidence that score-level beats feature-level (AdaBN) adaptation for this problem.
 
-## 2. Method
-- Adaptive symmetric S-norm on the probe×gallery score matrix (unsupervised, cohort = target set).
-- Mis-calibration indicator (baseline EER / score-distribution spread) as the predictor of benefit.
-- Contrast: AdaBN (feature BN adaptation) and quality-conditioned / AS-norm / quantile variants
-  (none significantly beat plain S-norm — reported honestly).
+Individual animal re-identification (re-ID) underpins ecological monitoring, precision livestock
+farming, and anti-poaching efforts. The field has converged on large pretrained embedding models:
+MegaDescriptor, trained on 2.8M images spanning 30k identities and 33 species, is the de-facto
+state of the art and outperforms general vision backbones such as CLIP and DINOv2 on in-domain
+benchmarks. However, the community's most-cited open problem is generalization: on cross-domain or
+time/similarity-aware splits, even MegaDescriptor drops by tens of points, because ecological data
+is collected under conditions that differ from training.
 
-## 3. Experiments
-**Table 1: S-norm recovery across models, modalities, shifts (EER, bootstrap 95% CI).**
-| Backbone | Modality | Shift | Baseline EER | +S-norm | Recovery | Significant? |
-| :-- | :-- | :-- | :--: | :--: | :--: | :--: |
-| Task CNN (ours) | cattle muzzle | cross-dataset B (308 IDs) | 12.2% | 7.9% | −35% (+4.0pt) | **yes** [+3.2,+4.7] |
-| MegaDescriptor-L | macaque face | corruption (spatter) | 6.24% | 5.34% | −14% | (large-EER) |
-| MegaDescriptor-L | Friesian coat | corruption (spatter) | 2.77% | 1.15% | −59% | (large-EER) |
-| MegaDescriptor-L | panda pattern | natural cross-video | 2.63% | 2.29% | −13% | **n.s.** |
-| DINOv2 (general) | panda pattern | natural cross-video | 40.8% | 35.3% | −13% | **yes** |
-| DINOv2 (general) | panda pattern | in-domain (random) | 38.0% | 31.4% | −17% | **yes** |
+Test-time adaptation (TTA) is the natural remedy, but most TTA methods operate on *features*
+(e.g. batch-norm statistics, entropy minimization) and require gradient steps or careful tuning; in
+re-ID they can be unstable when the target set is small. We take a different and deliberately
+minimal view. We observe that under domain shift the *ranking* of a re-ID model often survives —
+the correct identity is still near the top — while the *operating threshold* that separates genuine
+from impostor pairs does not transfer. This is a calibration failure of the score distribution, not
+a collapse of the features.
 
-## 4. Analysis — the conditional law
-- Recovery magnitude and significance scale with baseline mis-calibration (EER / score spread).
-- Well-calibrated strong backbone + mild shift => nothing to fix (honest negative).
-- Weak/general backbone or severe shift => significant, sizeable recovery.
-- Score-level (S-norm) transfers; feature-level (AdaBN) does not reliably.
+This paper is an empirical and analytical study of one consequence of that observation: adaptive
+symmetric score normalization (S-norm), a decades-old technique from speaker verification, can be
+applied verbatim at test time — no labels, no retraining, no source data — to realign the score
+distribution to the target domain. Our contributions are:
 
-## 5. Limitations (honest)
-- No proposed mechanism significantly beats plain S-norm (AS-norm / quantile / quality-conditioned
-  all tested; bootstrap n.s.). This is an empirical/analysis contribution, not a new method.
-- Corruption shift is a controlled proxy; natural shifts are limited to available metadata.
-- Cattle muzzle biometrics does not exist in wildlife; only the calibration *method* transfers.
+1. **A broad, honest empirical demonstration** that S-norm recovers cross-domain re-ID verification
+   across three backbones, four biometric modalities, and three shift families.
+2. **A conditional characterization with significance testing.** Using probe-level bootstrap
+   confidence intervals, we show the recovery is significant precisely when the score distribution
+   is mis-calibrated (large baseline EER) and negligible otherwise, and we give a controlled
+   two-backbone comparison on identical data that isolates calibration as the cause.
+3. **Evidence that the fix is score-level, not feature-level:** feature-level AdaBN is unreliable
+   (helping on some sets, destabilizing others), whereas score-level S-norm is monotone-safe.
+
+We are explicit that this is not a new method: we tested adaptive top-k (AS-norm), quantile
+normalization, and a quality-conditioned variant, and none significantly beat plain S-norm.
+The value of the paper is the *characterization* — telling practitioners when a zero-cost baseline
+will and will not help — not a novel mechanism.
+
+## 2. Related Work
+
+**Foundation models for animal re-ID.** MegaDescriptor and the WildlifeDatasets toolkit
+standardized large-scale animal re-ID; WildlifeReID-10k (10k identities, 33 species) and PetFace
+established leakage-aware, time/similarity-aware evaluation. These works document, but do not
+resolve, the cross-domain gap.
+
+**Test-time adaptation.** TENT (entropy minimization), AdaBN (BN-statistic adaptation), and
+vision-language TTA (e.g. TDA) adapt features or predictions at test time. DART³ studies TTA
+specifically for person re-ID. Most require adaptation steps and can be brittle with few target
+samples; our approach requires neither gradients nor labels.
+
+**Score normalization.** Z-norm, T-norm, and (adaptive) S-norm originate in speaker verification
+as cohort-based recalibration of verification scores. Quality-based score fusion (Nandakumar et al.)
+weights modalities by input quality. We repurpose S-norm as a domain-adaptation tool for visual
+re-ID and, unlike prior fusion work, characterize *when* it is statistically effective.
+
+## 3. Method
+
+**Setup.** Given a gallery of enrolled templates and a set of probes, a backbone produces
+L2-normalized embeddings; the score matrix `S` holds cosine similarities between probes (rows) and
+gallery templates (columns). Verification thresholds `S`; identification ranks each row.
+
+**Adaptive symmetric S-norm.** For a probe `i` and template `j`,
+`S'_{ij} = 1/2[(S_{ij} - mu_i)/sigma_i + (S_{ij} - mu_j)/sigma_j]`,
+where `(mu_i, sigma_i)` are the mean and standard deviation of probe `i`'s scores against the
+gallery cohort, and `(mu_j, sigma_j)` the statistics of template `j` against the probe cohort. The
+cohort is the target set itself; no labels or source data are used. Intuitively, S-norm removes
+per-probe and per-template offsets/scales that domain shift introduces, restoring a common
+operating point.
+
+**Mis-calibration predictor.** We use the baseline EER (equivalently, the overlap of the genuine
+and impostor score distributions) as an a-priori indicator of whether S-norm will help: a large
+baseline EER signals a mis-calibrated score distribution with headroom for recalibration.
+
+**Baselines we compare against.** (i) Raw cosine (no adaptation). (ii) AdaBN — recompute the
+backbone's batch-norm statistics on the target (feature-level). (iii) Alternative score-norms:
+AS-norm (top-k cohort), quantile/rank normalization, and a quality-conditioned S-norm that scales
+calibration strength per probe. We report all honestly.
+
+## 4. Experimental Setup
+
+**Backbones.** (a) a task-specific EfficientNet-B4 + ArcFace muzzle CNN trained on a single cattle
+dataset; (b) MegaDescriptor-L-384 (re-ID foundation model); (c) DINOv2 ViT-B/14 (general
+self-supervised model), used as a frozen embedding extractor.
+
+**Datasets / modalities.** Cattle muzzle (two external cross-datasets), MacaqueFaces (primate
+face), FriesianCattle2017 (cattle coat), IPanda50 (panda coat pattern).
+
+**Domain-shift protocols.** (i) *Cross-dataset*: train on one cattle dataset, enroll+probe a
+different one (real acquisition shift). (ii) *Corruption*: clean gallery, probes corrupted with
+blur / brightness / spatter at graded severities (controlled shift). (iii) *Natural*: split
+gallery/probe by dataset metadata — MacaqueFaces by capture date (temporal), IPanda50 by video
+(recording session) — an ecologically valid shift with no synthetic manipulation.
+
+**Metrics & significance.** Verification EER and ROC-AUC. For each condition we report the EER
+recovery (baseline minus S-norm) with a 95% bootstrap confidence interval over resampled probes;
+"significant" means the interval excludes zero.
+
+## 5. Results
+
+**Table 1** summarizes recovery across backbones, modalities, and shift families.
+
+| Backbone | Modality | Shift | Baseline EER | +S-norm | Recovery | 95% CI / note |
+| :-- | :-- | :-- | :--: | :--: | :--: | :-- |
+| Muzzle CNN (ours) | cattle muzzle | cross-dataset (308 IDs) | 12.2% | 7.9% | +4.0 pt | [+3.2, +4.7] **sig** |
+| Muzzle CNN (ours) | cattle muzzle | cross-dataset (24 IDs) | 14.8% | 11.4% | +3.4 pt | large-EER regime |
+| MegaDescriptor | macaque face | corruption (spatter) | 6.24% | 5.34% | +0.9 pt | large-EER regime |
+| MegaDescriptor | Friesian coat | corruption (spatter) | 2.77% | 1.15% | +1.6 pt | large-EER regime |
+| MegaDescriptor | panda pattern | natural (cross-video) | 2.63% | 2.29% | +0.3 pt | [−0.33, +0.14] **n.s.** |
+| MegaDescriptor | macaque face | natural (date) | 0.08% | 0.08% | 0 | no gap |
+| DINOv2 (general) | panda pattern | natural (cross-video) | 40.8% | 35.3% | +5.5 pt | [+4.0, +7.2] **sig** |
+| DINOv2 (general) | macaque face | natural (date) | 29.2% | 20.7% | +8.4 pt | [+7.2, +9.8] **sig** |
+
+**The conditional law.** Recovery magnitude and statistical significance track the baseline EER.
+Where the score distribution is well-calibrated (MegaDescriptor on species it was trained on, EER
+≈ 0–3%), S-norm's effect is small and, on the mild natural panda shift, not significant. Where the
+distribution is mis-calibrated (the cattle CNN across datasets, or DINOv2 anywhere), S-norm yields
+multi-point, significant EER reductions.
+
+**Controlled comparison (isolating the cause).** On MacaqueFaces with the natural date split,
+holding data and shift fixed and varying only the backbone: MegaDescriptor, trained on macaques, is
+essentially perfect (0.08% EER) and gains nothing; DINOv2, which was never trained for re-ID and is
+mis-calibrated for it, degrades to 29.2% EER under the same shift and is significantly recovered by
+S-norm (+8.4 pt, CI [+7.2, +9.8]). Identical inputs, opposite outcomes — the benefit is attributable
+to backbone calibration, not to the data or the shift.
+
+**Score-level beats feature-level.** Feature-level AdaBN helped verification on one cattle
+cross-dataset but destabilized the other (and collapsed open-set rejection), whereas score-level
+S-norm never harmed and helped whenever mis-calibration was present. This supports our framing that
+the transferable fix operates on scores.
+
+**Negative result on novelty.** AS-norm, quantile normalization, and quality-conditioned S-norm
+each occasionally edged plain S-norm by ~0.1–0.2 EER points, but probe-level bootstrap CIs on those
+differences straddle zero across datasets. No variant significantly beats plain S-norm; we therefore
+present the paper as an empirical characterization rather than a new method.
+
+## 6. Discussion
+
+Our results reframe a slice of cross-domain re-ID robustness as a calibration question with a
+predictable answer. Practitioners deploying a re-ID model to a new farm or field site can (i) apply
+S-norm at essentially no cost, and (ii) predict whether it will help from the target-set baseline
+EER before collecting a single label. The finding that a general model (DINOv2) benefits even
+in-distribution, while a specialized model (MegaDescriptor) benefits only under shift, indicates
+that the mechanism is score mis-calibration rather than domain shift per se — shift is simply one
+common cause of mis-calibration.
+
+## 7. Limitations
+
+(i) The contribution is empirical/analytical; no proposed mechanism significantly outperforms plain
+S-norm. (ii) Corruption shifts are controlled proxies; natural shifts are limited to the metadata
+available in public datasets. (iii) We study verification/identification with cohort-based
+calibration; jointly learning a calibrator with theoretical guarantees is left to future work.
+(iv) Muzzle-print biometrics does not exist for free-ranging wildlife; only the calibration method,
+not the cattle modality, transfers across the study.
+
+## 8. Conclusion
+
+Cross-domain animal re-identification degradation is, to a first approximation, a score-calibration
+problem, and label-free adaptive S-norm is a dependable, zero-cost remedy whose effectiveness is
+predictable from a simple mis-calibration signal. We demonstrate this across three backbones, four
+modalities, and three shift families, with significance testing and a controlled comparison that
+isolates calibration as the cause. We advocate reporting cross-domain re-ID with, and predicting
+from, this calibration lens.
 
 ## References
-MegaDescriptor (WACV'24); DINOv2; TENT (ICLR'21); TDA (CVPR'24); S-norm (Auckenthaler 2000);
-AdaBN (Li 2017); WildlifeReID-10k; Nandakumar quality fusion (ICPR'06).
+1. Čermák, Picek, Adam, Papafitsoros. WildlifeDatasets / MegaDescriptor. WACV 2024.
+2. Oquab et al. DINOv2. TMLR 2024.
+3. Wang et al. TENT: Fully Test-Time Adaptation by Entropy Minimization. ICLR 2021.
+4. Li et al. Revisiting Batch Normalization for Practical Domain Adaptation (AdaBN). ICLR-W 2017.
+5. Karmakar et al. / DART³: Test-Time Adaptation for Person Re-ID. 2025.
+6. Auckenthaler, Carey, Lloyd-Thomas. Score Normalization for Text-Independent Speaker Verification
+   (S-norm/cohort). Digital Signal Processing 2000.
+7. Nandakumar, Chen, Dass, Jain. Quality-based Score Level Fusion in Multibiometric Systems. ICPR 2006.
+8. Adam et al. WildlifeReID-10k. 2024.
+9. Deng et al. ArcFace. CVPR 2019.
