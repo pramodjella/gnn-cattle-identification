@@ -160,10 +160,18 @@ cross-dataset but destabilized the other (and collapsed open-set rejection), whe
 S-norm never harmed and helped whenever mis-calibration was present. This supports our framing that
 the transferable fix operates on scores.
 
-**Negative result on novelty.** AS-norm, quantile normalization, and quality-conditioned S-norm
-each occasionally edged plain S-norm by ~0.1–0.2 EER points, but probe-level bootstrap CIs on those
-differences straddle zero across datasets. No variant significantly beats plain S-norm; we therefore
-present the paper as an empirical characterization rather than a new method.
+**Negative result on novelty (thoroughly tested).** We asked whether any variant beats plain
+S-norm, including in the high-mis-calibration regime (DINOv2) where there is the most headroom. The
+outcome is modality-dependent and does not yield a robust method. A quality-conditioned S-norm
+significantly outperforms plain S-norm on face modalities (chimpanzee CZoo +3.3 EER pt, macaque
++5.1–5.7 pt, bootstrap CIs exclude zero) but is statistically indistinguishable on panda pattern
+and *significantly worse* on cattle coat (Friesian, −2.7 pt at high severity). Adaptive top-k
+(AS-norm) and quantile normalization each win on isolated cases but lose elsewhere. Across
+datasets, no variant reliably beats plain S-norm, and some are significantly harmful on some data.
+We therefore present the paper as an empirical characterization with plain S-norm as the dependable,
+modality-agnostic choice, not as a new method. (Practical note: per-probe quality conditioning
+appears to help when a confidence signal is informative — e.g. faces — and hurt when it is not —
+e.g. repetitive coat patterns — which is itself a small honest finding about when *not* to add it.)
 
 ## 6. Discussion
 

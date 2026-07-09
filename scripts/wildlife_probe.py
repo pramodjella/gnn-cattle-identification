@@ -47,6 +47,21 @@ def load_megadescriptor(device):
     return model, tf
 
 
+def load_backbone(name, device):
+    """Load a foundation backbone; returns (model, transform)."""
+    if name == 'megadescriptor':
+        return load_megadescriptor(device)
+    if name == 'dinov2':
+        import timm
+        m = timm.create_model('vit_base_patch14_dinov2.lvd142m', pretrained=True, num_classes=0)
+        m.eval().to(device)
+        cfg = timm.data.resolve_data_config({}, model=m)
+        tf = timm.data.create_transform(**cfg)
+        print(f"[probe] DINOv2 ViT-B/14 loaded (embed dim={m.num_features})")
+        return m, tf
+    raise ValueError(name)
+
+
 @torch.no_grad()
 def embed_paths(model, tf, paths, device, batch=32, corrupt='clean', severity=0):
     """Embed images, optionally applying a corruption (domain shift) first."""

@@ -19,7 +19,7 @@ import torch.nn.functional as F
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 from src.evaluation.calibration import METHODS
-from scripts.wildlife_probe import load_megadescriptor, embed_paths, verif_eer_from_scores
+from scripts.wildlife_probe import load_backbone, embed_paths, verif_eer_from_scores
 
 
 def main():
@@ -27,6 +27,7 @@ def main():
     ap.add_argument('--dataset', default='FriesianCattle2017')
     ap.add_argument('--root', default='data/wildlife')
     ap.add_argument('--shifts', nargs='+', default=['clean:0', 'spatter:3', 'spatter:5', 'blur:5'])
+    ap.add_argument('--backbone', default='megadescriptor', choices=['megadescriptor', 'dinov2'])
     args = ap.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,7 +51,7 @@ def main():
     gpaths = [paths[i] for i in gal_idx]; ppaths = [paths[i] for i in prb_idx]
     gal_lbl, prb_lbl = labels[gal_idx], labels[prb_idx]
 
-    model, tf = load_megadescriptor(device)
+    model, tf = load_backbone(args.backbone, device)
     g_emb = embed_paths(model, tf, gpaths, device)
     gids = sorted(set(gal_lbl))
     templ = torch.stack([F.normalize(g_emb[gal_lbl == c].mean(0), p=2, dim=-1) for c in gids])

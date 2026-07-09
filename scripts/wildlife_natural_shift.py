@@ -24,23 +24,8 @@ import torch.nn.functional as F
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
-from scripts.wildlife_probe import load_megadescriptor, embed_paths, verif_eer_from_scores
+from scripts.wildlife_probe import load_backbone, embed_paths, verif_eer_from_scores
 from src.evaluation.calibration import snorm
-
-
-def load_backbone(name, device):
-    """Load a foundation backbone; returns (model, transform)."""
-    if name == 'megadescriptor':
-        return load_megadescriptor(device)
-    if name == 'dinov2':
-        import timm
-        m = timm.create_model('vit_base_patch14_dinov2.lvd142m', pretrained=True, num_classes=0)
-        m.eval().to(device)
-        cfg = timm.data.resolve_data_config({}, model=m)
-        tf = timm.data.create_transform(**cfg)
-        print(f"[probe] DINOv2 ViT-B/14 loaded (embed dim={m.num_features})")
-        return m, tf
-    raise ValueError(name)
 
 
 def domain_of(df, dataset):
