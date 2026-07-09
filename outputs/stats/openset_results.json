@@ -1,0 +1,111 @@
+{
+  "model": "cnn",
+  "known_frac": 0.5,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "aggregated": {
+    "rank1_on_known_probes": {
+      "mean": 0.9861564874649048,
+      "std": 0.008885840922580624
+    },
+    "openset_auc": {
+      "mean": 0.9863672451169133,
+      "std": 0.004503566552613053
+    },
+    "DIR@FAR=0.01": {
+      "mean": 0.6258263791475317,
+      "std": 0.13833181965310531
+    },
+    "DIR@FAR=0.05": {
+      "mean": 0.9552598544189378,
+      "std": 0.0209135625267796
+    },
+    "DIR@FAR=0.1": {
+      "mean": 0.97608624010164,
+      "std": 0.01596811428553363
+    }
+  },
+  "per_seed": [
+    {
+      "num_known_ids": 130,
+      "num_unknown_ids": 130,
+      "num_known_probes": 473,
+      "num_unknown_probes": 491,
+      "openset_auc": 0.988766076910822,
+      "rank1_on_known_probes": 0.9915433526039124,
+      "DIR@FAR=0.01": 0.6405919661733616,
+      "threshold@FAR=0.01": 0.9982786774635315,
+      "DIR@FAR=0.05": 0.9704016913319239,
+      "threshold@FAR=0.05": 0.9937728643417358,
+      "DIR@FAR=0.1": 0.985200845665962,
+      "threshold@FAR=0.1": 0.9916521310806274,
+      "seed": 0
+    },
+    {
+      "num_known_ids": 130,
+      "num_unknown_ids": 130,
+      "num_known_probes": 448,
+      "num_unknown_probes": 516,
+      "openset_auc": 0.9894578834440753,
+      "rank1_on_known_probes": 0.9933035969734192,
+      "DIR@FAR=0.01": 0.6629464285714286,
+      "threshold@FAR=0.01": 0.9982459545135498,
+      "DIR@FAR=0.05": 0.9665178571428571,
+      "threshold@FAR=0.05": 0.9939335584640503,
+      "DIR@FAR=0.1": 0.9888392857142857,
+      "threshold@FAR=0.1": 0.9920545220375061,
+      "seed": 1
+    },
+    {
+      "num_known_ids": 130,
+      "num_unknown_ids": 130,
+      "num_known_probes": 476,
+      "num_unknown_probes": 488,
+      "openset_auc": 0.9793661316985811,
+      "rank1_on_known_probes": 0.970588207244873,
+      "DIR@FAR=0.01": 0.6869747899159664,
+      "threshold@FAR=0.01": 0.9980432987213135,
+      "DIR@FAR=0.05": 0.9159663865546218,
+      "threshold@FAR=0.05": 0.9949242472648621,
+      "DIR@FAR=0.1": 0.9474789915966386,
+      "threshold@FAR=0.1": 0.992516279220581,
+      "seed": 2
+    },
+    {
+      "num_known_ids": 130,
+      "num_unknown_ids": 130,
+      "num_known_probes": 496,
+      "num_unknown_probes": 468,
+      "openset_auc": 0.9913625241246209,
+      "rank1_on_known_probes": 0.9818548560142517,
+      "DIR@FAR=0.01": 0.7741935483870968,
+      "threshold@FAR=0.01": 0.9976124167442322,
+      "DIR@FAR=0.05": 0.9516129032258065,
+      "threshold@FAR=0.05": 0.9941185712814331,
+      "DIR@FAR=0.1": 0.969758064516129,
+      "threshold@FAR=0.1": 0.9922499060630798,
+      "seed": 3
+    },
+    {
+      "num_known_ids": 130,
+      "num_unknown_ids": 130,
+      "num_known_probes": 461,
+      "num_unknown_probes": 503,
+      "openset_auc": 0.9828836094064679,
+      "rank1_on_known_probes": 0.9934924244880676,
+      "DIR@FAR=0.01": 0.3644251626898048,
+      "threshold@FAR=0.01": 0.9990871548652649,
+      "DIR@FAR=0.05": 0.9718004338394793,
+      "threshold@FAR=0.05": 0.9943171143531799,
+      "DIR@FAR=0.1": 0.9891540130151844,
+      "threshold@FAR=0.1": 0.9919214248657227,
+      "seed": 4
+    }
+  ],
+  "note": "Model trained closed-set on all identities; known/unknown partition is defined by enrolment. For a strict unseen-identity claim, retrain with unknown ids held out."
+}

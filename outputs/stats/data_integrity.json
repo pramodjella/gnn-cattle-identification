@@ -1,0 +1,63 @@
+{
+  "all_passed": true,
+  "image_leakage": {
+    "passed": true,
+    "num_unique_images": 4891,
+    "num_leaked_images": 0,
+    "examples": {}
+  },
+  "closed_set": {
+    "passed": true,
+    "per_split": {
+      "train": {
+        "num_identities": 260,
+        "identities_not_in_train": []
+      },
+      "val": {
+        "num_identities": 260,
+        "identities_not_in_train": []
+      },
+      "test": {
+        "num_identities": 260,
+        "identities_not_in_train": []
+      }
+    },
+    "num_identities_total": 260
+  },
+  "label_mapping": {
+    "passed": true,
+    "note": "Label ids are consistent across splits because every split contains all identities (closed-set).",
+    "mismatched_identities": {}
+  },
+  "protocol_summary": {
+    "train": {
+      "num_images": 3312,
+      "num_identities": 260,
+      "images_per_identity_mean": 12.74,
+      "images_per_identity_min": 3,
+      "images_per_identity_max": 49
+    },
+    "val": {
+      "num_images": 615,
+      "num_identities": 260,
+      "images_per_identity_mean": 2.37,
+      "images_per_identity_min": 1,
+      "images_per_identity_max": 10
+    },
+    "test": {
+      "num_images": 964,
+      "num_identities": 260,
+      "images_per_identity_mean": 3.71,
+      "images_per_identity_min": 1,
+      "images_per_identity_max": 11
+    },
+    "overall": {
+      "total_images": 4891,
+      "split_fractions": {
+        "train": 0.677,
+        "val": 0.126,
+        "test": 0.197
+      }
+    }
+  }
+}

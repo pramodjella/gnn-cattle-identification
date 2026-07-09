@@ -185,6 +185,15 @@ hybrid:
   use_enhanced_aug: true # Use EnhancedGraphAugmentation
   arcface_scale: 96.0    # Hybrid: slightly lower than CNN
   arcface_margin: 0.35
+  # Multi-scale FPN-style node sampling: sample backbone stages 4/6/8
+  # (96+232+1536=1864 ch) so nodes carry both fine texture and coarse context.
+  # Set true then retrain for the improved variant; false loads legacy ckpts.
+  multi_scale: false
+  ms_stage_indices: [4, 6, 8]
+  # Adaptive Graph Construction: learned edge-relevance gate + pruning that
+  # replaces the static geometric k-NN topology feeding the relation module.
+  learned_edges: false
+  edge_prune_threshold: 0.1
   early_stopping:
     patience: 40
     min_delta: 0.0005

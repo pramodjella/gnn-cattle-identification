@@ -60,18 +60,29 @@ def extract_and_cache_features(model, loaders, device, cache_dir, amp_dtype):
     model.eval()
     # Only need CNN features extractor
     cnn = model.cnn_features
+    multi_scale = getattr(model, 'multi_scale', False)
 
     for split, loader in loaders.items():
         split_cache = cache_dir / split
         split_cache.mkdir(exist_ok=True)
 
-        # Check if already cached
-        existing = list(split_cache.glob('*.pt'))
+        # Check if already cached — and that the cached FORMAT matches the
+        # current model (single- vs multi-scale). A stale single-scale cache
+        # from a prior run would otherwise feed 1536-d features to a multi-scale
+        # node_proj (1864-d) and crash.
+        existing = sorted(split_cache.glob('*.pt'))
         dataset_size = len(loader.dataset)
+        expected_stages = len(model.ms_stage_indices) if multi_scale else 1
 
         if len(existing) == dataset_size:
-            print(f"  [Cache] {split}: {len(existing)} feature maps already cached, skipping.")
-            continue
+            probe = torch.load(existing[0], weights_only=False)
+            cached_stages = len(probe['fmaps']) if 'fmaps' in probe else 1
+            if cached_stages == expected_stages:
+                print(f"  [Cache] {split}: {len(existing)} maps cached ({cached_stages} stage/s), skipping.")
+                continue
+            print(f"  [Cache] {split}: stale cache ({cached_stages} vs {expected_stages} stages) — rebuilding.")
+            for f in existing:
+                f.unlink()
 
         print(f"  [Cache] Extracting features for {split} ({dataset_size} samples)...")
         t0 = time.time()
@@ -81,16 +92,20 @@ def extract_and_cache_features(model, loaders, device, cache_dir, amp_dtype):
             for batch_idx, (images, graphs, labels) in enumerate(loader):
                 images = images.to(device, non_blocking=True)
 
-                # Extract spatial feature maps: (B, 1536, 8, 8)
+                # Extract spatial feature maps. Multi-scale caches several stage
+                # maps (list); single-scale caches the final map (list of one).
                 with autocast(device_type='cuda', dtype=torch.float32, enabled=False):
-                    fmaps = cnn(images.float())  # (B, 1536, H', W')
+                    if multi_scale:
+                        stage_maps = model._forward_stages(images.float())  # list
+                    else:
+                        stage_maps = [cnn(images.float())]  # (B, 1536, H', W')
 
-                # Save each sample's feature map and graph
-                B = fmaps.shape[0]
+                # Save each sample's feature map(s) and graph
+                B = stage_maps[0].shape[0]
                 for i in range(B):
                     sample_idx = batch_idx * loader.batch_size + i
                     torch.save({
-                        'fmap': fmaps[i].cpu().half(),  # fp16 to save space
+                        'fmaps': [m[i].cpu().half() for m in stage_maps],  # list, fp16
                         'pos': graphs[i].pos if hasattr(graphs[i], 'pos') else None,
                         'edge_index': graphs[i].edge_index,
                         'edge_attr': graphs[i].edge_attr if graphs[i].edge_attr is not None else None,
@@ -117,7 +132,11 @@ class CachedHybridDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         data = torch.load(self.files[idx], weights_only=False)
-        fmap = data['fmap'].float()  # (1536, H', W')
+        # Back-compat: old caches stored a single 'fmap'; new store 'fmaps' list.
+        if 'fmaps' in data:
+            fmaps = [m.float() for m in data['fmaps']]
+        else:
+            fmaps = [data['fmap'].float()]
         pos = data['pos']
         edge_index = data['edge_index']
         edge_attr = data.get('edge_attr')
@@ -125,16 +144,17 @@ class CachedHybridDataset(torch.utils.data.Dataset):
 
         # Simple feature augmentation (only for training)
         if self.augment and torch.rand(1).item() < 0.5:
-            noise = torch.randn_like(fmap) * 0.01
-            fmap = fmap + noise
+            fmaps = [m + torch.randn_like(m) * 0.01 for m in fmaps]
 
-        return fmap, pos, edge_index, edge_attr, label
+        return fmaps, pos, edge_index, edge_attr, label
 
 
 def cached_collate_fn(batch):
     """Collate cached features + graph structure into a batch."""
-    fmaps, positions, edge_indices, edge_attrs, labels = zip(*batch)
-    fmaps = torch.stack(fmaps)   # (B, 1536, H', W')
+    fmaps_list, positions, edge_indices, edge_attrs, labels = zip(*batch)
+    # Each sample is a list of stage maps; stack per stage -> list of (B,C,H,W).
+    num_stages = len(fmaps_list[0])
+    fmaps = [torch.stack([s[k] for s in fmaps_list]) for k in range(num_stages)]
     labels = torch.stack(labels) # (B,)
 
     # Rebuild batch vector for GNN
@@ -160,50 +180,54 @@ def forward_on_cached(model, fmaps, positions, edge_indices, edge_attrs,
     Run only the GNN part of the Hybrid model on pre-extracted feature maps.
     Bypasses the CNN backbone entirely — very fast.
     """
-    fmaps = fmaps.to(device, non_blocking=True)
+    # fmaps is a list of per-stage batched maps [(B,C,H,W), ...] (one for
+    # single-scale, several for multi-scale).
+    fmaps = [f.to(device, non_blocking=True) for f in fmaps]
     batch_vec = batch_vec.to(device, non_blocking=True)
 
-    B = fmaps.shape[0]
-    H, W = fmaps.shape[2], fmaps.shape[3]
+    B = fmaps[0].shape[0]
 
     with autocast(device_type='cuda', dtype=amp_dtype, enabled=use_amp):
-        # Reconstruct per-node CNN features via bilinear sampling
+        # Reconstruct per-node CNN features via bilinear sampling from every
+        # cached stage map, then concatenate across stages (multi-scale).
         node_feats_list = []
-        offset = 0
         for b in range(B):
             pos_b = positions[b]
             if pos_b is None:
                 continue
             pos_b = pos_b.to(device)
-            n = pos_b.shape[0]
-
-            # Sample from cached feature map (same logic as HybridCNNGNN)
-            grid_xy = pos_b[:, :2] * 2.0 - 1.0
-            grid = grid_xy.view(1, 1, -1, 2)
-            fmap_b = fmaps[b:b+1]
-            sampled = F.grid_sample(fmap_b, grid, mode='bilinear',
-                                     padding_mode='border', align_corners=True)
-            sampled = sampled.squeeze(0).squeeze(1).T  # (N, 1536)
-            node_feats_list.append(sampled)
-            offset += n
+            grid = (pos_b[:, :2] * 2.0 - 1.0).view(1, 1, -1, 2)
+            per_scale = []
+            for m in fmaps:
+                s = F.grid_sample(m[b:b+1], grid, mode='bilinear',
+                                  padding_mode='border', align_corners=True)
+                per_scale.append(s.squeeze(0).squeeze(1).T)  # (N, C_stage)
+            node_feats_list.append(torch.cat(per_scale, dim=-1))  # (N, sum C)
 
         if not node_feats_list:
             return None, None
 
-        node_feats = torch.cat(node_feats_list, dim=0)  # (N_total, 1536)
+        node_feats = torch.cat(node_feats_list, dim=0)  # (N_total, sum C)
 
-        # Rebuild edge_index for the full batch
-        edge_indices_shifted = []
+        # Rebuild edge_index (+ edge_attr) for the full batch
+        edge_indices_shifted, edge_attr_parts = [], []
         node_offset = 0
         for b, ei in enumerate(edge_indices):
             ei = ei.to(device)
             n_b = positions[b].shape[0] if positions[b] is not None else 0
             edge_indices_shifted.append(ei + node_offset)
+            if edge_attrs[b] is not None:
+                edge_attr_parts.append(edge_attrs[b].to(device))
             node_offset += n_b
         edge_index = torch.cat(edge_indices_shifted, dim=1)
+        edge_attr_full = torch.cat(edge_attr_parts, dim=0) if edge_attr_parts else None
 
         # Project node features
         x = model.node_proj(node_feats)
+
+        # Adaptive graph construction (learned edge gating) — if enabled.
+        if getattr(model, 'learned_edges', False):
+            edge_index, _, _ = model.adaptive_graph(x, edge_index, edge_attr_full)
 
         # EdgeConv
         x, _ = model.edge_conv(x, batch=batch_vec)

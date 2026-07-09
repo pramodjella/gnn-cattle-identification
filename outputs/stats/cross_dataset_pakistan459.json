@@ -1,0 +1,27 @@
+{
+  "data_root": "data/external/pakistan_cropped",
+  "num_images": 1848,
+  "num_identities": 308,
+  "closed_set": {
+    "rank1": 0.8701298701298701,
+    "rank5": 0.9437229437229437,
+    "eer": 0.12187802120190248,
+    "roc_auc": 0.9506783660769367
+  },
+  "open_set": {
+    "openset_auc": {
+      "mean": 0.9293180082025198,
+      "std": 0.005345327620098766
+    },
+    "DIR@FAR=0.01": {
+      "mean": 0.44281959160475787,
+      "std": 0.018977266492923146
+    },
+    "DIR@FAR=0.05": {
+      "mean": 0.7021606065936842,
+      "std": 0.009212335621279774
+    }
+  },
+  "note": "Zero-shot transfer: no fine-tuning on the external dataset.",
+  "min_images": 2
+}

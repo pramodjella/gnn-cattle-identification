@@ -1,0 +1,49 @@
+{
+  "data_integrity": {
+    "all_passed": true
+  },
+  "ensemble": {
+    "test_rank1": 0.9605809128630706,
+    "eer": 0.007825269193438848,
+    "roc_auc": 0.9995435115725297,
+    "val_selected_w_cnn": 0.9500000000000001,
+    "selection_gap": 2.745276173055089e-08
+  },
+  "open_set": {
+    "known_rank1": {
+      "mean": 0.9861564874649048,
+      "std": 0.008885840922580624
+    },
+    "openset_auc": {
+      "mean": 0.9863672451169133,
+      "std": 0.004503566552613053
+    },
+    "DIR@FAR=0.01": {
+      "mean": 0.6258263791475317,
+      "std": 0.13833181965310531
+    },
+    "DIR@FAR=0.05": {
+      "mean": 0.9552598544189378,
+      "std": 0.0209135625267796
+    }
+  },
+  "explainability": {
+    "methods": {
+      "attention_rollout": {
+        "fidelity_plus": 0.03319887932545195,
+        "fidelity_minus": 0.4182924979212263,
+        "sparsity": 0.3326408294339975
+      },
+      "grad_cam": {
+        "fidelity_plus": 0.03961457891079287,
+        "fidelity_minus": 0.49321164305235005,
+        "sparsity": 0.6878871738910675
+      }
+    },
+    "cross_method_agreement": -0.01664782715677138
+  },
+  "cross_dataset": {
+    "closed_rank1": 0.125,
+    "openset_auc": 0.8194444444444444
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "data_root": "data/external/kaggle25_cropped",
+  "num_images": 667,
+  "num_identities": 24,
+  "closed_set": {
+    "rank1": 0.9640179910044977,
+    "rank5": 0.9895052473763118,
+    "eer": 0.15437015496664475,
+    "roc_auc": 0.922549269152682
+  },
+  "open_set": {
+    "openset_auc": {
+      "mean": 0.9536565156370459,
+      "std": 0.004242768786438595
+    },
+    "DIR@FAR=0.01": {
+      "mean": 0.38032738437596736,
+      "std": 0.03125601911114261
+    },
+    "DIR@FAR=0.05": {
+      "mean": 0.6408253473030802,
+      "std": 0.034792806019743994
+    }
+  },
+  "note": "Zero-shot transfer: no fine-tuning on the external dataset.",
+  "min_images": 2
+}

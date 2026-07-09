@@ -93,13 +93,15 @@ class GNNExplainerWrapper:
             ),
         )
 
-    @torch.no_grad()
     def explain_graph(
         self,
         data: Any,
     ) -> Tuple[Tensor, Tensor]:
         """
         Explain a single graph.
+
+        Note: this must NOT run under ``torch.no_grad`` — GNNExplainer
+        optimises the node/edge masks by gradient descent internally.
 
         Args:
             data: PyG Data/Batch object (single graph).

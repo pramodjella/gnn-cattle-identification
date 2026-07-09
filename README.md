@@ -12,7 +12,7 @@ Below is the consolidated performance on the test split (964 images) across all 
 
 | Model | Rank-1 (%) | Rank-5 (%) | EER (%) | ROC AUC | Description / Reference |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Ensemble (CNN TTA + Hybrid)** | **96.1** | **98.1** | **0.78** | **0.9995** | Proposed SOTA (Blended weights: CNN=0.95, Hybrid=0.05) |
+| **Ensemble (CNN TTA + Hybrid)** | **96.1** | **98.1** | **0.78** | **0.9995** | CNN+Hybrid blend, weight *selected on validation* (w=0.95), applied to test; cuts EER 3.5× vs CNN alone |
 | CNN (with TTA) | 95.4 | 97.4 | 2.70 | 0.9961 | EfficientNet-B4 + ArcFace with Test-Time Augmentation |
 | CNN (EfficientNet-B4) | 95.4 | 97.4 | 2.70 | 0.9961 | Baseline EfficientNet-B4 with ArcFace Loss |
 | VGG-16 Baseline | 95.1 | 97.7 | 1.23 | 0.9993 | Re-implementation of Bello et al. (2020) |
@@ -134,8 +134,14 @@ python scripts/baselines/train_vgg_baseline.py
 python scripts/baselines/train_resnet_baseline.py
 ```
 
-### 4. Cross-Validation & Statistical Tests
+### 4. Validation, Cross-Validation & Statistical Tests
 ```bash
+# Verify closed-set protocol & audit for image-level leakage (run this first)
+python scripts/verify_data_integrity.py
+
+# Validation-selected CNN+Hybrid ensemble (honest, no test-set tuning)
+python scripts/ensemble_inference.py
+
 # Run Stratified 5-Fold Cross-Validation on top 3 models
 python scripts/cross_validation.py
 
@@ -154,6 +160,9 @@ python scripts/figures/generate_paper_figures.py
 # Generate explainability maps (Grad-CAM and GNN Attention)
 python scripts/visualize_gradcam.py
 python scripts/visualize_gnn_attention.py
+
+# Quantitative explainability: Fidelity+/-, sparsity, cross-method agreement
+python scripts/evaluate_explainability.py --model gnn_v3 --num-graphs 40
 ```
 
 ---

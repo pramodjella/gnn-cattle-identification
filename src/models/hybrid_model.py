@@ -45,6 +45,7 @@ from torch_geometric.nn import global_mean_pool, global_max_pool
 from .arcface import ArcFaceLoss
 from .edge_conv import DynamicEdgeConvBlock
 from .trm import TopologicalRelationModule
+from .adaptive_graph import AdaptiveGraphConstruction
 
 
 class HybridCNNGNN(nn.Module):
@@ -63,7 +64,11 @@ class HybridCNNGNN(nn.Module):
                  trm_heads: int = 4,
                  trm_layers: int = 2,
                  dropout: float = 0.3,
-                 pretrained: bool = True):
+                 pretrained: bool = True,
+                 multi_scale: bool = False,
+                 ms_stage_indices=(4, 6, 8),
+                 learned_edges: bool = False,
+                 edge_prune_threshold: float = 0.1):
         """
         Args:
             num_classes: Number of cattle identities.
@@ -89,6 +94,11 @@ class HybridCNNGNN(nn.Module):
             trm_layers = trm_cfg.get('num_layers', 2)
             dropout = ec_cfg.get('dropout', 0.3)
             embedding_dim = model_cfg.get('embedding_dim', 256)
+            hy_cfg = config.get('hybrid', {})
+            multi_scale = hy_cfg.get('multi_scale', multi_scale)
+            ms_stage_indices = tuple(hy_cfg.get('ms_stage_indices', ms_stage_indices))
+            learned_edges = hy_cfg.get('learned_edges', learned_edges)
+            edge_prune_threshold = hy_cfg.get('edge_prune_threshold', edge_prune_threshold)
 
         if edge_conv_dims is None:
             edge_conv_dims = [256, 512, 512]
@@ -103,15 +113,43 @@ class HybridCNNGNN(nn.Module):
         # Keep only the convolutional feature extractor (no global pool, no classifier)
         self.cnn_features = backbone.features   # (B, 1536, H', W')
 
+        # ── Multi-scale sampling config ────────────────────────────────────
+        # Sampling from several backbone stages (FPN-style) gives each node both
+        # fine groove texture (early, high-res stages) and coarse context (late
+        # stages), instead of only the stride-32 final map. Off by default so
+        # existing single-scale checkpoints load unchanged.
+        self.multi_scale = multi_scale
+        self.ms_stage_indices = tuple(sorted(set(ms_stage_indices)))
+        # EfficientNet-B3 per-stage output channels (torchvision .features):
+        _b3_stage_channels = {0: 40, 1: 24, 2: 32, 3: 48, 4: 96,
+                              5: 136, 6: 232, 7: 384, 8: 1536}
+        if self.multi_scale:
+            node_in_dim = sum(_b3_stage_channels[i] for i in self.ms_stage_indices)
+        else:
+            node_in_dim = self.backbone_out_dim
+
         # ── 2. Node Feature Projection ─────────────────────────────────────
-        # Projects 1536-d CNN features → 256-d for GNN compatibility
-        node_in_dim = self.backbone_out_dim
+        # Projects sampled CNN features → edge_conv_dims[0] for GNN compatibility
         self.node_proj = nn.Sequential(
             nn.Linear(node_in_dim, edge_conv_dims[0]),
             nn.BatchNorm1d(edge_conv_dims[0]),
             nn.GELU(),
             nn.Dropout(dropout),
         )
+
+        # ── 2b. Adaptive Graph Construction (learned edge gating) ──────────
+        # Replaces the static geometric k-NN topology fed to the relation
+        # module with a learned, per-image edge relevance gate.
+        self.learned_edges = learned_edges
+        if learned_edges:
+            edge_feat_dim = 5
+            if config is not None:
+                edge_feat_dim = config.get('graph', {}).get('edge_feature_dim', 5)
+            self.adaptive_graph = AdaptiveGraphConstruction(
+                node_dim=edge_conv_dims[0],
+                edge_dim=edge_feat_dim,
+                prune_threshold=edge_prune_threshold,
+            )
 
         # ── 3. Dynamic EdgeConv Blocks ─────────────────────────────────────
         self.edge_conv = DynamicEdgeConvBlock(
@@ -192,48 +230,58 @@ class HybridCNNGNN(nn.Module):
         Returns:
             node_features: (N_total, 1536) CNN features per keypoint.
         """
-        B = images.shape[0]
-        device = images.device
-
-        # --- CNN forward pass: one pass for whole image batch ---
-        # Output: (B, 1536, H', W')
-        # For 256×256 input, EfficientNet-B3 gives ≈ 8×8 feature maps (stride 32)
         device_type = 'cuda' if images.device.type == 'cuda' else 'cpu'
         with torch.amp.autocast(device_type=device_type, enabled=False):
-            # Run in fp32 for numerical stability in sampling
-            feature_map = self.cnn_features(images.float())  # (B, 1536, H', W')
+            # Run in fp32 for numerical stability in sampling.
+            if self.multi_scale:
+                feature_maps = self._forward_stages(images.float())  # list of (B,C_s,H_s,W_s)
+            else:
+                feature_maps = [self.cnn_features(images.float())]   # single (B,1536,H',W')
 
-        _, C, Hf, Wf = feature_map.shape
+        return self._sample_maps(feature_maps, positions, batch_vector)
 
-        # --- Per-node: sample from the feature map of the corresponding image ---
-        # positions: (N_total, 2) in [0, 1], format: (x_normalized, y_normalized)
-        # grid_sample expects grid in [-1, 1]
-        # We'll process each image separately for correctness
+    def _forward_stages(self, images: torch.Tensor):
+        """Run the backbone stage-by-stage, returning the selected stage maps."""
+        maps = []
+        x = images
+        for i, stage in enumerate(self.cnn_features):
+            x = stage(x)
+            if i in self.ms_stage_indices:
+                maps.append(x)
+        return maps
 
+    def _sample_maps(self, feature_maps, positions: torch.Tensor,
+                     batch_vector: torch.Tensor) -> torch.Tensor:
+        """Bilinear-sample every feature map at each node position, then concat.
+
+        Args:
+            feature_maps: list of (B, C_s, H_s, W_s) maps.
+            positions:    (N_total, 2) normalized [0,1] (x, y).
+            batch_vector: (N_total,) graph/image assignment.
+
+        Returns:
+            (N_total, sum_s C_s) sampled node features.
+        """
+        B = feature_maps[0].shape[0]
         node_features_list = []
         for b in range(B):
             node_mask = batch_vector == b
             if not node_mask.any():
                 continue
-            pos_b = positions[node_mask]  # (N_b, 2) in [0, 1]
+            pos_b = positions[node_mask]                 # (N_b, 2) in [0,1]
+            grid = (pos_b * 2.0 - 1.0).view(1, 1, -1, 2)  # (1,1,N_b,2) in [-1,1]
 
-            # Convert to grid_sample format: (1, 1, N_b, 2) in [-1, 1]
-            # grid_sample expects (x, y) where x is width, y is height
-            grid_xy = pos_b * 2.0 - 1.0   # [0,1] → [-1,1]
-            grid = grid_xy.view(1, 1, -1, 2)  # (1, 1, N_b, 2)
+            per_scale = []
+            for fmap in feature_maps:
+                sampled = F.grid_sample(
+                    fmap[b:b + 1], grid,
+                    mode='bilinear', padding_mode='border', align_corners=True
+                )                                        # (1, C_s, 1, N_b)
+                C_s = sampled.shape[1]
+                per_scale.append(sampled.permute(0, 2, 3, 1).view(-1, C_s))
+            node_features_list.append(torch.cat(per_scale, dim=-1))  # (N_b, sum C_s)
 
-            # Feature map for this image: (1, C, Hf, Wf)
-            fmap_b = feature_map[b:b+1]
-
-            # Bilinear sampling: (1, C, 1, N_b) → permute & view → (N_b, C)
-            sampled = F.grid_sample(
-                fmap_b, grid,
-                mode='bilinear', padding_mode='border', align_corners=True
-            )  # (1, C, 1, N_b)
-            sampled = sampled.permute(0, 2, 3, 1).view(-1, C)  # (N_b, C)
-            node_features_list.append(sampled)
-
-        return torch.cat(node_features_list, dim=0)  # (N_total, 1536)
+        return torch.cat(node_features_list, dim=0)
 
     def forward(self, images: torch.Tensor, graph_batch,
                 labels: torch.Tensor = None) -> dict:
@@ -268,6 +316,12 @@ class HybridCNNGNN(nn.Module):
         # ── Step 2: Project to GNN-compatible dimension ───────────────────────
         x = self.node_proj(node_feats_raw)   # (N_total, 256)
 
+        # ── Step 2b: Adaptive Graph Construction (optional) ───────────────────
+        edge_gate = None
+        if self.learned_edges:
+            edge_attr = getattr(graph_batch, 'edge_attr', None)
+            edge_index, _, edge_gate = self.adaptive_graph(x, edge_index, edge_attr)
+
         # ── Step 3: Dynamic EdgeConv ──────────────────────────────────────────
         x, _ = self.edge_conv(x, batch=batch_vec)  # (N_total, 512)
 
@@ -283,7 +337,8 @@ class HybridCNNGNN(nn.Module):
         emb = self.projection_head(x_pooled)      # (B, 256)
         embedding = F.normalize(emb, p=2, dim=-1)
 
-        result = {'embedding': embedding, 'attention': attention}
+        result = {'embedding': embedding, 'attention': attention,
+                  'edge_gate': edge_gate}
 
         if labels is not None:
             loss, stats = self.arcface(embedding, labels)
