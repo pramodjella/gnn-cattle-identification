@@ -212,6 +212,17 @@ collecting a single label. That a general model (DINOv2) benefits even in-distri
 specialized model (MegaDescriptor) benefits only under shift, indicates the mechanism is score
 mis-calibration rather than domain shift per se---shift is simply one common cause of it.
 
+\textbf{Distributional vs.\ structural calibration.} A consistent pattern explains why plain S-norm
+is hard to beat: \emph{distributional} recalibration (S-norm, which normalizes score offsets and
+scales) is modality-agnostic and helps whenever mis-calibration is present, whereas \emph{structural}
+signals we tested as add-ons---quality conditioning and k-reciprocal re-ranking, which exploit
+per-sample confidence or mutual-neighbour topology---help on face modalities but are neutral or
+harmful on repetitive patterns (panda coat), where neighbourhood structure is noisy. On MacaqueFaces,
+k-reciprocal followed by S-norm reaches 19.3\% EER vs.\ 21.9\% for S-norm alone, yet on IPanda50 the
+same combination does not improve over S-norm. A fixed structural prior is thus the wrong
+abstraction; a promising direction is a learned test-time module that \emph{gates} structural signals
+per input---retaining them where informative (faces) and suppressing them where not (patterns).
+
 \section{Limitations}
 (i) The contribution is empirical/analytical; no proposed mechanism robustly outperforms plain
 S-norm. (ii) Corruption shifts are controlled proxies; natural shifts are limited to available
