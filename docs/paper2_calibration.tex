@@ -162,10 +162,23 @@ DINOv2 (general) & macaque face & natural (date) & 29.2\% & 20.7\% & $+8.4$ pt &
 \end{tabular}
 \end{table*}
 
-\section{Results}
-Table~\ref{tab:main} summarizes recovery across backbones, modalities, and shift families.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_calibration_law.pdf}
+\caption{The conditional law. S-norm EER recovery grows with the baseline EER (a proxy for score
+mis-calibration; trend slope $0.21$). Well-calibrated MegaDescriptor conditions (low EER) cluster at
+the bottom-left with negligible, non-significant recovery, while mis-calibrated DINOv2 conditions
+(high EER) show large, significant recovery. Marker shape: significant / not-significant or no-gap /
+not-CI-tested; colour: backbone.}
+\label{fig:law}
+\end{figure}
 
-\textbf{The conditional law.} Recovery magnitude and significance track the baseline EER. Where the
+\section{Results}
+Table~\ref{tab:main} summarizes recovery across backbones, modalities, and shift families, and
+Fig.~\ref{fig:law} visualizes the central finding.
+
+\textbf{The conditional law.} Recovery magnitude and significance track the baseline EER
+(Fig.~\ref{fig:law}). Where the
 score distribution is well-calibrated (MegaDescriptor on species it was trained on, EER $\approx$
 0--3\%), S-norm's effect is small and, on the mild natural panda shift, not significant. Where the
 distribution is mis-calibrated (the cattle CNN across datasets, or DINOv2 anywhere), S-norm yields
