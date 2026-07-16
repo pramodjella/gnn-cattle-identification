@@ -399,7 +399,11 @@ validation split. We evaluate on clean test data and on three corruptions --- Ga
 brightness/haze, and spatter (occlusion) --- at severities 1, 3, 5, applying the corruption
 to the \emph{image} so the Hybrid's CNN backbone also degrades (not a clean-graph oracle).
 Per-sample scores are symmetrised so all policies are compared on identical verification
-pairs.
+pairs. This is a \emph{self-contained} study run under its own corruption harness (no
+test-time augmentation, symmetrised scoring), so its clean-column numbers are not identical
+to the headline ensemble of \Cref{tab:main} (which uses CNN test-time augmentation); the
+val-tuned scalar here reaches EER $1.17\%$ vs.\ the TTA ensemble's $0.78\%$. The comparison
+of interest is \emph{within} this table, across fusion policies under matched conditions.
 
 \begin{table}[t]
   \centering
