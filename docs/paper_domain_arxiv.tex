@@ -22,8 +22,11 @@
 
 \graphicspath{{../outputs/figures/}{../outputs/figures/architecture/}{../outputs/figures/extension/}{../outputs/figures/explainability/}{../docs/}}
 
+\usepackage{microtype}
 \newcommand{\rank}[1]{\textbf{#1}}
 \captionsetup{font=small,labelfont=bf}
+\setlength{\emergencystretch}{3em}
+\setlength{\tabcolsep}{4.5pt}
 
 \title{\textbf{Graph-Augmented Deep Learning for Cattle Muzzle\\ Biometric Identification: Where Do Graphs Actually Help?}}
 
@@ -128,7 +131,7 @@ in the gallery.
 
 To pre-empt the most common reviewer concern --- that a test accuracy exceeding validation
 accuracy indicates leakage --- we run an automated integrity audit
-(\texttt{scripts/verify\_data\_integrity.py}) verifying: (i) no source image (by file stem)
+(\texttt{scripts/\allowbreak verify\_data\_integrity.py}) verifying: (i) no source image (by file stem)
 appears in more than one split; (ii) every identity is present in the gallery; and (iii)
 the \texttt{animal\_id}$\to$class-index mapping is identical across splits. All checks pass.
 The apparent validation/test discrepancy is fully explained by split composition, not
@@ -479,7 +482,7 @@ the highlighted evidence is what the model actually uses.
 
 \paragraph{Stage 1 --- Attribution.}
 For the CNN branch we compute Grad-CAM; for the GNN branch, multi-layer GATv2 attention
-rollout, graph Grad-CAM, and GNNExplainer (\texttt{src/models/explainability.py}). We
+rollout, graph Grad-CAM, and GNNExplainer (\texttt{src/models/\allowbreak explainability.py}). We
 assemble a stratified case set spanning the outcome types --- correct matches, false accepts,
 false rejects, and the two branch-disagreement classes (CNN-correct/GNN-wrong and
 GNN-correct/CNN-wrong) --- and render side-by-side CNN-vs-GNN explanations per case
