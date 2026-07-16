@@ -403,24 +403,24 @@ pairs.
 
 \begin{table}[t]
   \centering
-  \caption{Corruption robustness of fusion policies. Clean and \emph{mean-over-nine-corrupted}
-  conditions (blur/brightness/spatter $\times$ severity 1/3/5). A single validation-tuned
-  scalar $\alpha$ is best on every aggregate metric; per-sample quality-adaptive gating does
-  not improve on it and hurts verification.}
+  \caption{Corruption robustness of fusion policies. ``clean'' and ``corr''
+  (\emph{mean over nine corrupted conditions}: blur/brightness/spatter $\times$ severity
+  1/3/5). A single validation-tuned scalar $\alpha$ is best on every aggregate metric;
+  per-sample quality-adaptive gating does not improve on it and hurts verification.}
   \label{tab:corrupt}
   \small
-  \begin{tabular}{lcccc}
+  \begin{tabular}{lcccccc}
     \toprule
-    & \multicolumn{2}{c}{Rank-1 (\%) $\uparrow$} & \multicolumn{2}{c}{EER (\%) $\downarrow$} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-    Fusion policy & clean & mean-corrupt & clean & mean-corrupt \\
+    & \multicolumn{2}{c}{Rank-1 (\%) $\uparrow$} & \multicolumn{2}{c}{EER (\%) $\downarrow$} & \multicolumn{2}{c}{TAR@FAR=1\% $\uparrow$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+    Fusion policy & clean & corr & clean & corr & clean & corr \\
     \midrule
-    CNN only                       & 95.1 & 89.8 & 2.81 & 4.43 \\
-    Hybrid only                    & 92.0 & 77.5 & 1.88 & 6.73 \\
-    Fixed $\alpha{=}0.5$           & 92.8 & 79.1 & 1.78 & 6.34 \\
-    \textbf{Val-tuned scalar $\alpha$} & \textbf{96.0} & \textbf{90.1} & \textbf{1.17} & \textbf{3.49} \\
-    Per-sample rule ($\alpha$ from blur)      & 91.9 & 76.3 & 2.34 & 8.69 \\
-    Per-sample learned gate        & 91.4 & 76.7 & 6.66 & 13.23 \\
+    CNN only                       & 95.1 & 89.8 & 2.81 & 4.43 & 96.2 & 85.2 \\
+    Hybrid only                    & 92.0 & 77.5 & 1.88 & 6.73 & 97.6 & 79.0 \\
+    Fixed $\alpha{=}0.5$           & 92.8 & 79.1 & 1.78 & 6.34 & 97.8 & 80.3 \\
+    \textbf{Val-tuned scalar $\alpha$} & \textbf{96.0} & \textbf{90.1} & \textbf{1.17} & \textbf{3.49} & \textbf{98.7} & \textbf{89.3} \\
+    Per-sample rule ($\alpha$ from blur)      & 91.9 & 76.3 & 2.34 & 8.69 & 96.6 & 74.2 \\
+    Per-sample learned gate        & 91.4 & 76.7 & 6.66 & 13.23 & 80.3 & 49.9 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -455,6 +455,19 @@ only simpler but strictly better than input-adaptive gating, mirroring our cross
 finding (\Cref{sec:cross}) that robust improvements come from \emph{global} score calibration
 rather than fine-grained per-input adaptation.
 
+\paragraph{Fusion ablations.} Two ablations from the plan sharpen the picture (clean test).
+(i) \emph{Which complement?} Replacing the Hybrid with the pure-graph \emph{ProtoN} in the
+val-tuned fusion yields the \emph{lowest} verification error of any configuration
+(EER $0.67\%$, TAR@FAR=1\% $99.4\%$ at $\alpha{=}0.85$) but at a Rank-1 cost (93.6\% vs.\ the
+CNN+Hybrid blend's 96.0\%), because the EER-optimal weight leans harder on the graph branch;
+CNN+Hybrid remains the better \emph{ranking} fusion. (ii) \emph{Which gate features?}
+Ablating the learned gate's feature groups shows the \emph{image-quality} features are what
+harm it: dropping them nearly halves the gate's EER ($6.66\%\to2.95\%$), while dropping the
+graph-quality or branch-disagreement features barely moves it. The gate was over-fitting
+noisy per-image quality estimates on the small validation disagreement set --- yet even its
+best-ablated variant (EER $2.95\%$) still loses to the trivial val-tuned scalar (EER
+$1.17\%$). The negative result is thus robust to gate design.
+
 \subsection{Explainability: A Causal Faithfulness Protocol}\label{sec:explain}
 We move beyond visualisation-only explainability (Grad-CAM + attention heatmaps) to a
 three-stage protocol that tests whether explanations are \emph{causally} faithful --- whether
@@ -462,48 +475,95 @@ the highlighted evidence is what the model actually uses.
 
 \paragraph{Stage 1 --- Attribution.}
 For the CNN branch we compute Grad-CAM; for the GNN branch, multi-layer GATv2 attention
-rollout, graph Grad-CAM, and GNNExplainer (\texttt{src/models/explainability.py}).
+rollout, graph Grad-CAM, and GNNExplainer (\texttt{src/models/explainability.py}). We
+assemble a stratified case set spanning the outcome types --- correct matches, false accepts,
+false rejects, and the two branch-disagreement classes (CNN-correct/GNN-wrong and
+GNN-correct/CNN-wrong) --- and render side-by-side CNN-vs-GNN explanations per case
+(\Cref{fig:stage1}). One case type is instructive by its rarity: only a \emph{single}
+false-reject exists in the entire 964-image test set (a genuine mate scoring below the
+EER threshold), a direct symptom of how well-separated the in-domain score distribution is.
 Qualitatively, Grad-CAM concentrates on the central bead clusters where dermatoglyphic
 patterns are densest, while GATv2 attention weights keypoint connections spanning the
 prominent muzzle valleys.
 
-\paragraph{Stage 2 --- Causal node ablation.}
-Qualitative maps are not evidence of causality. On 120 test graphs we rank nodes by graph
-Grad-CAM importance and remove the top-$k\%$, a random $k\%$, and the bottom-$k\%$ for
-$k\in\{10,20,30\}$, measuring the shift in the identity embedding
-($\Delta\cos = 1-\cos(\text{full},\text{ablated})$) and the top-1 identity-flip rate against
-the full-graph gallery (\Cref{tab:ablation}). A causally faithful explainer implies
-\emph{top} $\gg$ \emph{random}. This holds cleanly on $\Delta\cos$ at every $k$: removing the
-most important nodes perturbs the embedding roughly $2$--$2.5\times$ more than removing random
-nodes (e.g.\ $0.106$ vs.\ $0.043$ at $k{=}30$), with the ordering
-top $>$ bottom $>$ random preserved throughout; the flip rate corroborates at low $k$
-(top-10 $18.3\%$ vs.\ random-10 $7.5\%$). Closed-set Rank-1 on the subset is essentially
-unmoved by sparse node removal --- a genuine \emph{robustness} property: identity is
-distributed across many keypoints rather than concentrated in a few, consistent with
-dermatoglyphic identity being a global textural signature.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.86\linewidth]{fig_stage1_attribution.pdf}
+  \caption{Stage 1 attribution across case types (one representative per row): the muzzle
+  image, the CNN Grad-CAM heatmap, and the GNN per-keypoint importance. Both branches
+  concentrate on dense dermatoglyphic bead regions; the per-keypoint GNN map is more diffuse,
+  consistent with the distributed-identity finding of Stage 2.}
+  \label{fig:stage1}
+\end{figure}
+
+\paragraph{Stage 2 --- Causal ablation of both branches.}
+Qualitative maps are not evidence of causality. We ablate the highest-importance evidence and
+measure the effect on identity, comparing against random and low-importance removal; a causally
+faithful map implies \emph{top} $\gg$ \emph{random}. For the \textbf{GNN branch}
+(\Cref{tab:ablation}, 120 test graphs) we rank nodes by graph Grad-CAM importance and remove
+the top-/random-/bottom-$k\%$ for $k\in\{10,20,30\}$, reporting the identity-embedding shift
+($\Delta\cos = 1-\cos(\text{full},\text{ablated})$, with case-resampling 95\% bootstrap CIs)
+and the top-1 flip rate. The signal is clean and \emph{statistically significant}: removing
+the most important nodes perturbs the embedding $2$--$2.5\times$ more than random, and the
+top-vs-random $\Delta\cos$ CIs are non-overlapping at every $k$ (e.g.\ $k{=}30$:
+top $[0.090,0.124]$ vs.\ random $[0.035,0.053]$). For the \textbf{CNN branch}
+(\Cref{tab:ablation-cnn}, full 964-image test set) we compute Grad-CAM and mask the
+top-/random-/bottom-$k\%$ of $32\times32$ image regions: masking the most important regions
+causes the largest Rank-1 drop and identity flips at every $k$ (top-30\% $-5.0$ Rank-1 vs.\
+random $-2.3$; flip $12.3\%$ vs.\ $5.3\%$), again with non-overlapping $\Delta\cos$ CIs.
+Both branches' attributions are therefore causally faithful. One asymmetry is telling:
+sparse GNN node removal barely moves closed-set Rank-1 (identity is \emph{distributed} across
+many keypoints --- a global textural signature), whereas masking CNN regions produces a real,
+graded Rank-1 drop.
 
 \begin{table}[t]
   \centering
-  \caption{Causal node ablation (GNN branch, 120 test graphs). Removing Grad-CAM-\emph{important}
-  (top) nodes shifts the identity embedding $\sim$2--2.5$\times$ more than removing random
-  nodes, evidence the attributions are causally faithful.}
+  \caption{Causal node ablation, \textbf{GNN branch} (120 test graphs; 95\% bootstrap CI on
+  $\Delta\cos$). Removing Grad-CAM-\emph{important} (top) nodes shifts identity
+  $\sim$2--2.5$\times$ more than random --- CIs non-overlapping at every $k$.}
   \label{tab:ablation}
   \small
   \begin{tabular}{lcc}
     \toprule
-    Removed nodes & $\Delta\cos$ $\uparrow$ & top-1 flip (\%) \\
+    Removed nodes & $\Delta\cos$ $\uparrow$ (95\% CI) & top-1 flip (\%) \\
     \midrule
-    top 10\%    & \textbf{0.029} & \textbf{18.3} \\
-    random 10\% & 0.013 & 7.5 \\
-    bottom 10\% & 0.020 & 13.3 \\
+    top 10\%    & \textbf{0.029} [0.022, 0.037] & \textbf{18.3} \\
+    random 10\% & 0.013 [0.010, 0.016] & 7.5 \\
+    bottom 10\% & 0.020 [0.016, 0.025] & 13.3 \\
     \midrule
-    top 20\%    & \textbf{0.065} & \textbf{23.3} \\
-    random 20\% & 0.028 & 14.2 \\
-    bottom 20\% & 0.052 & 23.3 \\
+    top 20\%    & \textbf{0.065} [0.053, 0.078] & \textbf{23.3} \\
+    random 20\% & 0.028 [0.022, 0.036] & 14.2 \\
+    bottom 20\% & 0.052 [0.043, 0.064] & 23.3 \\
     \midrule
-    top 30\%    & \textbf{0.106} & 28.3 \\
-    random 30\% & 0.043 & 18.3 \\
-    bottom 30\% & 0.087 & 34.2 \\
+    top 30\%    & \textbf{0.106} [0.090, 0.124] & 28.3 \\
+    random 30\% & 0.043 [0.035, 0.053] & 18.3 \\
+    bottom 30\% & 0.087 [0.072, 0.104] & 34.2 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \caption{Causal region ablation, \textbf{CNN branch} (full 964-image test set). Masking
+  top-importance Grad-CAM regions causes the largest Rank-1 drop and identity flips at every
+  $k$ ($\Delta\cos$ CIs non-overlapping top-vs-random).}
+  \label{tab:ablation-cnn}
+  \small
+  \begin{tabular}{lccc}
+    \toprule
+    Masked regions & $\Delta\cos$ $\uparrow$ & top-1 flip (\%) & Rank-1 drop \\
+    \midrule
+    top 10\%    & \textbf{0.0012} & \textbf{2.8} & \textbf{$-1.1$} \\
+    random 10\% & 0.0007 & 1.5 & $-0.1$ \\
+    bottom 10\% & 0.0009 & 2.2 & $+0.2$ \\
+    \midrule
+    top 20\%    & \textbf{0.0027} & \textbf{6.7} & \textbf{$-2.9$} \\
+    random 20\% & 0.0018 & 3.3 & $-1.6$ \\
+    bottom 20\% & 0.0024 & 3.6 & $-0.3$ \\
+    \midrule
+    top 30\%    & \textbf{0.0041} & \textbf{12.3} & \textbf{$-5.0$} \\
+    random 30\% & 0.0028 & 5.3 & $-2.3$ \\
+    bottom 30\% & 0.0038 & 5.7 & $-1.7$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -521,9 +581,21 @@ the default configuration does not consume edge attributes, and the permutation-
 mean+max pooling makes the embedding invariant to any reindexing of the keypoints. In other
 words, on clean in-domain data the Hybrid's identity signal is carried almost entirely by the
 CNN texture sampled at keypoints and by feature-space message passing --- not by the input
-muzzle \emph{geometry}. This corroborates the central finding of \Cref{sec:main} (CNN texture
-dominates ranking; the graph contributes a small verification refinement) and mechanistically
-explains the CNN-dominant fusion weight ($0.95$).
+muzzle \emph{geometry}. The same pattern holds \emph{under corruption}: repeating the
+intervention on the spatter-severity-3 test set, zeroing node features still collapses Rank-1
+($56.8\%\to0.1\%$) while randomising edges, zeroing edge attributes, or shuffling positions
+each move it by $\le0.7$ points --- the geometry is inert whether the input is clean or
+degraded. This corroborates the central finding of \Cref{sec:main} (CNN texture dominates
+ranking; the graph contributes a small verification refinement) and mechanistically explains
+the CNN-dominant fusion weight ($0.95$).
+
+\paragraph{What does fusion actually rescue?} As the plan's fusion-gain measure, we tally
+per-probe outcomes of the val-tuned CNN+Hybrid blend against the CNN alone on the test set.
+The fusion rescues 17 probes the CNN gets wrong while harming 9 it gets right (net $+8$,
+matching the $+0.9$-point Rank-1 gain), and on the 13 probes where the Hybrid is right but the
+CNN is wrong it recovers 12 ($92\%$). The graph branch's contribution is thus concrete but
+small and targeted --- it corrects a handful of specific CNN errors --- consistent with its
+role as a verification-sharpening complement rather than a competitive ranker.
 
 \begin{table}[t]
   \centering
@@ -538,8 +610,8 @@ explains the CNN-dominant fusion weight ($0.95$).
     \midrule
     Full Hybrid (unperturbed) & 92.0 & 1.88 & --- \\
     Zero edge attributes      & 92.0 & 1.88 & $0.0$ \\
-    Shuffle keypoint positions & 92.5 & 1.90 & $+0.5$ \\
-    Randomise graph edges     & 92.5 & 1.91 & $+0.5$ \\
+    Shuffle keypoint positions & 92.3 & 1.84 & $-0.3$ \\
+    Randomise graph edges     & 92.2 & 1.82 & $-0.2$ \\
     \textbf{Zero node features} & \textbf{0.1} & \textbf{50.2} & $\mathbf{-91.9}$ \\
     \bottomrule
   \end{tabular}
@@ -566,8 +638,10 @@ the representation \emph{generalises zero-shot} to two separate muzzle datasets 
 87.0\% Rank-1, no fine-tuning; \Cref{sec:cross}) via a detector that doubles as the
 deployment front-end, and that the residual cross-domain verification gap is a calibration
 problem recoverable by unsupervised S-norm. We complement qualitative saliency with a
-\emph{causal} explainability protocol, finding the GNN distributes its identity decision
-across many keypoints. Remaining work before camera-ready is full-budget five-fold
+\emph{causal} explainability protocol --- statistically significant node- and region-ablation
+faithfulness for both branches, and a pathway intervention showing the Hybrid's provided graph
+geometry is causally inert (clean and corrupted) while identity rides on CNN texture ---
+finding the GNN distributes its identity decision across many keypoints. Remaining work before camera-ready is full-budget five-fold
 cross-validation of the Hybrid model and an ablation of the multi-scale node-sampling
 variant; longer-term directions include cross-farm domain adaptation and low-latency on-farm
 deployment.

@@ -153,45 +153,59 @@ The model transfers strongly for **identification** on both sets (Figure 2) — 
 
 Section 3.1 shows a single validation-selected fusion weight cuts in-domain EER 3.5×. A natural follow-up — and a common recommendation in multi-biometric fusion — is to make the fusion weight *input-adaptive*, trusting the CNN more when the image is degraded and the graph branch more when it is clean. We test this directly. Following the score-fusion formulation $s_{final}(x) = \alpha(x)\,s_{CNN} + (1-\alpha(x))\,s_{Hybrid}$, we compare six policies for $\alpha$: (1) CNN only, (2) Hybrid only, (3) fixed $\alpha=0.5$, (4) a single **validation-tuned** scalar $\alpha$, (5) a **rule-based** per-sample $\alpha$ from image blur, and (6) a **learned** per-sample gate (logistic regression on image- and graph-quality features, trained only on validation disagreement cases). Every gate is fit *only* on the validation split. We evaluate on clean test data and on three corruptions — Gaussian blur, brightness/haze, and spatter (occlusion) — at severities 1, 3, 5, applying the corruption to the *image* so the Hybrid's CNN backbone also degrades (not a clean-graph oracle). Per-sample scores are symmetrised so all policies are compared on identical verification pairs.
 
-**Table 5: Corruption robustness of fusion policies (clean and mean-over-nine-corrupted conditions)**
-| Fusion policy | Clean R1 (%) | Mean-corrupt R1 (%) | Clean EER (%) | Mean-corrupt EER (%) |
-| :--- | :---: | :---: | :---: | :---: |
-| CNN only | 95.1 | 89.8 | 2.81 | 4.43 |
-| Hybrid only | 92.0 | 77.5 | 1.88 | 6.73 |
-| Fixed α=0.5 | 92.8 | 79.1 | 1.78 | 6.34 |
-| **Val-tuned scalar α** | **96.0** | **90.1** | **1.17** | **3.49** |
-| Per-sample rule (α from blur) | 91.9 | 76.3 | 2.34 | 8.69 |
-| Per-sample learned gate | 91.4 | 76.7 | 6.66 | 13.23 |
+**Table 5: Corruption robustness of fusion policies** (clean and "corr" = mean over nine corrupted conditions: blur/brightness/spatter × severity 1/3/5)
+| Fusion policy | R1 clean | R1 corr | EER clean | EER corr | TAR@1% clean | TAR@1% corr |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| CNN only | 95.1 | 89.8 | 2.81 | 4.43 | 96.2 | 85.2 |
+| Hybrid only | 92.0 | 77.5 | 1.88 | 6.73 | 97.6 | 79.0 |
+| Fixed α=0.5 | 92.8 | 79.1 | 1.78 | 6.34 | 97.8 | 80.3 |
+| **Val-tuned scalar α** | **96.0** | **90.1** | **1.17** | **3.49** | **98.7** | **89.3** |
+| Per-sample rule (α from blur) | 91.9 | 76.3 | 2.34 | 8.69 | 96.6 | 74.2 |
+| Per-sample learned gate | 91.4 | 76.7 | 6.66 | 13.23 | 80.3 | 49.9 |
 
-The answer is clear, and partly negative. The **validation-tuned scalar α is best on all four aggregate metrics**: it matches the CNN's Rank-1 while more than halving clean EER (2.81→1.17) and reducing mean-corrupt EER (4.43→3.49). It does so by learning α=0.95 on clean/mild data (blending in just 5% of the graph branch to sharpen verification) and α→1.0 under severe spatter, where it gracefully abandons the fragile Hybrid and reduces exactly to the robust CNN (never worse). The fixed 50/50 blend, by contrast, is dragged down with the Hybrid under occlusion (Rank-1 33.7% at spatter-5 vs. the CNN's 65.2%). **Crucially, neither per-sample quality-adaptive policy improves on the single scalar** — the learned gate is in fact the *worst* for verification (clean EER 6.66%). Per-sample gating adds estimation variance without a corresponding payoff, because one branch (the CNN) dominates almost everywhere. This mirrors our cross-domain finding (§3.4) that robust improvements come from *global* score calibration, not fine-grained per-input adaptation.
+The answer is clear, and partly negative. The **validation-tuned scalar α is best on every aggregate metric** (including TAR@FAR=1%: 98.7% clean, 89.3% mean-corrupt): it matches the CNN's Rank-1 while more than halving clean EER (2.81→1.17) and reducing mean-corrupt EER (4.43→3.49). It does so by learning α=0.95 on clean/mild data (blending in just 5% of the graph branch to sharpen verification) and α→1.0 under severe spatter, where it gracefully abandons the fragile Hybrid and reduces exactly to the robust CNN (never worse). The fixed 50/50 blend, by contrast, is dragged down with the Hybrid under occlusion (Rank-1 33.7% at spatter-5 vs. the CNN's 65.2%). **Crucially, neither per-sample quality-adaptive policy improves on the single scalar** — the learned gate is in fact the *worst* for verification (clean EER 6.66%, TAR@1% 80.3%). Per-sample gating adds estimation variance without a corresponding payoff, because one branch (the CNN) dominates almost everywhere. This mirrors our cross-domain finding (§3.4) that robust improvements come from *global* score calibration, not fine-grained per-input adaptation.
+
+**Fusion ablations.** Two ablations from the plan sharpen the picture (clean test). *(i) Which complement?* Replacing the Hybrid with the pure-graph ProtoN in the val-tuned fusion yields the *lowest* verification error of any configuration (EER 0.67%, TAR@1% 99.4% at α=0.85) but at a Rank-1 cost (93.6% vs. the CNN+Hybrid blend's 96.0%), because the EER-optimal weight leans harder on the graph branch; CNN+Hybrid remains the better *ranking* fusion. *(ii) Which gate features?* Ablating the learned gate's feature groups shows the *image-quality* features are what harm it: dropping them nearly halves the gate's EER (6.66→2.95%), while dropping graph-quality or branch-disagreement features barely moves it — the gate over-fits noisy per-image quality on the small validation disagreement set. Even its best-ablated variant (EER 2.95%) still loses to the trivial val-tuned scalar (EER 1.17%), so the negative result is robust to gate design.
 
 ### 3.6 Explainability: A Causal Faithfulness Protocol
 
 We move beyond visualisation-only explainability (Grad-CAM + attention heatmaps) to a three-stage protocol that tests whether explanations are *causally* faithful, i.e. whether the highlighted evidence is what the model actually uses.
 
-**Stage 1 — Attribution.** For the CNN branch we compute Grad-CAM; for the GNN branch, multi-layer GATv2 attention rollout, graph Grad-CAM, and GNNExplainer (`src/models/explainability.py`). Grad-CAM concentrates on the central bead clusters where dermatoglyphic patterns are densest, while GATv2 attention weights keypoint connections spanning the prominent muzzle valleys.
+**Stage 1 — Attribution.** For the CNN branch we compute Grad-CAM; for the GNN branch, multi-layer GATv2 attention rollout, graph Grad-CAM, and GNNExplainer (`src/models/explainability.py`). We assemble a stratified case set spanning correct matches, false accepts, false rejects, and the two branch-disagreement classes, and render side-by-side CNN-vs-GNN explanations per case. One case type is instructive by its rarity: only a *single* false-reject exists in the entire 964-image test set (a genuine mate below the EER threshold), a symptom of how well-separated the in-domain score distribution is. Grad-CAM concentrates on the central bead clusters where dermatoglyphic patterns are densest, while GATv2 attention weights keypoint connections spanning the prominent muzzle valleys.
 
-**Stage 2 — Causal node ablation.** Qualitative maps are not evidence of causality. On 120 test graphs we rank nodes by graph Grad-CAM importance and remove the top-*k*%, a random *k*%, and the bottom-*k*% for *k*∈{10,20,30}, measuring the identity-embedding shift (Δcos = 1−cos(full, ablated)) and the top-1 identity-flip rate against the full-graph gallery. A causally faithful explainer implies **top ≫ random**, which holds cleanly on Δcos at every *k*: removing the most important nodes perturbs the embedding ~2–2.5× more than removing random nodes (0.106 vs. 0.043 at *k*=30), with ordering top > bottom > random preserved throughout; the flip rate corroborates at low *k* (top-10 18.3% vs. random-10 7.5%).
+**Stage 2 — Causal ablation of both branches.** Qualitative maps are not evidence of causality. We ablate the highest-importance evidence and compare against random/low-importance removal; a faithful map implies **top ≫ random**. For the **GNN branch** (120 test graphs) we rank nodes by graph Grad-CAM importance and remove the top/random/bottom-*k*% for *k*∈{10,20,30}, measuring the identity-embedding shift (Δcos, with 95% bootstrap CIs) and top-1 flip rate. The signal is clean and *statistically significant*: top removal perturbs the embedding ~2–2.5× more than random, and the top-vs-random Δcos CIs are **non-overlapping at every *k*** (*k*=30: top [0.090, 0.124] vs. random [0.035, 0.053]). For the **CNN branch** (full 964-image test set) we mask top/random/bottom-*k*% of 32×32 Grad-CAM regions: masking important regions causes the largest Rank-1 drop and flips at every *k* (top-30% −5.0 Rank-1 vs. random −2.3; flip 12.3% vs. 5.3%), again with non-overlapping Δcos CIs.
 
-**Table 6: Causal node ablation (GNN branch, 120 test graphs)**
-| Removed nodes | Δcos ↑ | top-1 flip (%) |
+**Table 6: Causal ablation — GNN branch (120 graphs, 95% bootstrap CI on Δcos)**
+| Removed nodes | Δcos ↑ (95% CI) | top-1 flip (%) |
 | :--- | :---: | :---: |
-| top 10% / random 10% / bottom 10% | **0.029** / 0.013 / 0.020 | **18.3** / 7.5 / 13.3 |
-| top 20% / random 20% / bottom 20% | **0.065** / 0.028 / 0.052 | **23.3** / 14.2 / 23.3 |
-| top 30% / random 30% / bottom 30% | **0.106** / 0.043 / 0.087 | 28.3 / 18.3 / 34.2 |
+| top 10% | **0.029** [0.022, 0.037] | **18.3** |
+| random 10% | 0.013 [0.010, 0.016] | 7.5 |
+| top 20% | **0.065** [0.053, 0.078] | **23.3** |
+| random 20% | 0.028 [0.022, 0.036] | 14.2 |
+| top 30% | **0.106** [0.090, 0.124] | 28.3 |
+| random 30% | 0.043 [0.035, 0.053] | 18.3 |
 
-**Stage 3 — Hybrid pathway intervention.** We ask *which pathway* the Hybrid relies on by perturbing its graph input at test time and re-scoring the full test set. The result is stark: zeroing the per-keypoint node features collapses Rank-1 from 92.0% to 0.1% (EER 1.88%→50.2%, i.e. chance), whereas destroying the provided graph topology (random edges), zeroing geometric edge attributes, or permuting keypoint positions each moves Rank-1 by ≤0.5 points.
+**Table 7: Causal ablation — CNN branch (full 964-image test set)**
+| Masked regions | Δcos ↑ | top-1 flip (%) | Rank-1 drop |
+| :--- | :---: | :---: | :---: |
+| top 10% / random 10% | **0.0012** / 0.0007 | **2.8** / 1.5 | **−1.1** / −0.1 |
+| top 20% / random 20% | **0.0027** / 0.0018 | **6.7** / 3.3 | **−2.9** / −1.6 |
+| top 30% / random 30% | **0.0041** / 0.0028 | **12.3** / 5.3 | **−5.0** / −2.3 |
 
-**Table 7: Hybrid pathway intervention (full test set)**
+Both branches' attributions are causally faithful. One asymmetry is telling: sparse GNN node removal barely moves closed-set Rank-1 (identity is *distributed* across many keypoints — a global textural signature), whereas masking CNN regions produces a real, graded Rank-1 drop.
+
+**Stage 3 — Hybrid pathway intervention.** We ask *which pathway* the Hybrid relies on by perturbing its graph input at test time and re-scoring the full test set. The result is stark: zeroing the per-keypoint node features collapses Rank-1 from 92.0% to 0.1% (EER 1.88%→50.2%, chance), whereas destroying the graph topology (random edges), zeroing edge attributes, or permuting keypoint positions each moves Rank-1 by ≤0.5 points. **The same pattern holds under corruption** (spatter-severity-3): zeroing node features still collapses Rank-1 56.8%→0.1% while geometry perturbations move it ≤0.7 points.
+
+**Table 8: Hybrid pathway intervention (full test set, clean)**
 | Intervention | Rank-1 (%) | EER (%) | ΔRank-1 |
 | :--- | :---: | :---: | :---: |
 | Full Hybrid (unperturbed) | 92.0 | 1.88 | — |
 | Zero edge attributes | 92.0 | 1.88 | 0.0 |
-| Shuffle keypoint positions | 92.5 | 1.90 | +0.5 |
-| Randomise graph edges | 92.5 | 1.91 | +0.5 |
+| Shuffle keypoint positions | 92.3 | 1.84 | −0.3 |
+| Randomise graph edges | 92.2 | 1.82 | −0.2 |
 | **Zero node features** | **0.1** | **50.2** | **−91.9** |
 
-This is not an accident of the architecture but a direct consequence of it: the Dynamic EdgeConv rebuilds its neighbourhood graph in *learned feature space* at every layer (so the static geometric edge set we supply is overridden), the default configuration does not consume edge attributes, and permutation-invariant mean+max pooling makes the embedding invariant to keypoint reindexing. On clean in-domain data the Hybrid's identity signal is therefore carried almost entirely by the CNN texture sampled at keypoints and by feature-space message passing — not by the input muzzle *geometry*. This corroborates §3.1 (CNN texture dominates ranking; the graph contributes a small verification refinement) and mechanistically explains the CNN-dominant fusion weight (0.95). Together, the three stages make the explainability claims falsifiable and reproducible — the standard we advocate for biometric-identification papers — rather than decorative.
+This is not an accident of the architecture but a direct consequence of it: the Dynamic EdgeConv rebuilds its neighbourhood graph in *learned feature space* at every layer (so the static geometric edge set is overridden), the default configuration does not consume edge attributes, and permutation-invariant mean+max pooling makes the embedding invariant to keypoint reindexing. On both clean and corrupted data the Hybrid's identity signal is carried by CNN texture and feature-space message passing — not by the input muzzle *geometry*. **What fusion rescues:** tallying the val-tuned CNN+Hybrid blend against the CNN alone, fusion rescues 17 probes the CNN gets wrong while harming 9 it gets right (net +8, matching the +0.9-point Rank-1 gain), and recovers 12 of the 13 (92%) Hybrid-correct/CNN-wrong probes. The graph branch's contribution is concrete but small and targeted — a verification-sharpening complement, not a competitive ranker. Together, the three stages make the explainability claims falsifiable and reproducible — the standard we advocate for biometric-identification papers — rather than decorative.
 
 ---
 

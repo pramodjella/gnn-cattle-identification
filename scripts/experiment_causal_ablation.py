@@ -48,6 +48,14 @@ def embed(model, data, device):
     return F.normalize(out['embedding'], p=2, dim=-1).squeeze(0).cpu()
 
 
+def bootstrap_ci(vec, n_boot=2000, seed=0):
+    """Percentile 95% CI of the mean of `vec` by case resampling."""
+    rng = np.random.default_rng(seed)
+    v = np.asarray(vec, dtype=float)
+    means = v[rng.integers(0, len(v), size=(n_boot, len(v)))].mean(1)
+    return float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))
+
+
 def ablate(data, importance, frac, strategy, rng):
     """Return subgraph with `frac` of nodes removed per `strategy`."""
     n = data.x.size(0)
@@ -109,21 +117,23 @@ def main():
             abl_emb = torch.stack([
                 embed(model, ablate(g, imp, frac, strat, rng), device)
                 for g, imp in zip(subset, imps)])
-            dcos = (1 - (abl_emb * full_emb).sum(1)).clamp(min=0).mean().item()
+            dcos_vec = (1 - (abl_emb * full_emb).sum(1)).clamp(min=0).numpy()
             # flip: nearest neighbour of ablated probe in the full gallery
             Sab = (abl_emb @ full_emb.t()).numpy(); np.fill_diagonal(Sab, -1e9)
             abl_pred = labels[Sab.argmax(1)]
-            flip = float((abl_pred != full_pred).float().mean())
+            flip_vec = (abl_pred != full_pred).numpy().astype(float)
+            dcos, flip = float(dcos_vec.mean()), float(flip_vec.mean())
+            d_lo, d_hi = bootstrap_ci(dcos_vec); f_lo, f_hi = bootstrap_ci(flip_vec)
             s = M.compute_all_metrics(abl_emb, labels)['summary']
             key = f'{strat}_{int(frac*100)}'
             results['conditions'][key] = {
-                'dcosine': dcos, 'top1_flip': flip,
+                'dcosine': dcos, 'dcosine_ci': [d_lo, d_hi],
+                'top1_flip': flip, 'top1_flip_ci': [f_lo, f_hi],
                 'rank1_drop': (full_r1 - s['rank_1_accuracy']) * 100,
                 'eer_incr': (s['eer'] - full_eer) * 100,
                 'rank1': s['rank_1_accuracy'], 'eer': s['eer']}
-            print(f"  {key:10s} dcos={dcos:.4f} flip={flip*100:5.1f}%  "
-                  f"R1drop={results['conditions'][key]['rank1_drop']:+5.1f}  "
-                  f"EER+={results['conditions'][key]['eer_incr']:+5.2f}")
+            print(f"  {key:10s} dcos={dcos:.4f} [{d_lo:.4f},{d_hi:.4f}]  "
+                  f"flip={flip*100:5.1f}% [{f_lo*100:.1f},{f_hi*100:.1f}]")
 
     save_stats(results, str(PROJECT_ROOT / 'outputs/stats/causal_ablation.json'))
     print("\nSaved -> outputs/stats/causal_ablation.json")

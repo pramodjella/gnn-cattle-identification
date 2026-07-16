@@ -27,6 +27,20 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.utils import load_config, save_stats
 from src.training.image_dataset import create_hybrid_loaders
 from src.evaluation.metrics import BiometricMetrics
+from src.evaluation import corruptions as corr
+
+MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+
+def corrupt_batch(images_cpu, kind, sev):
+    if kind is None or sev == 0:
+        return images_cpu
+    out = torch.empty_like(images_cpu)
+    for i in range(images_cpu.size(0)):
+        x01 = (images_cpu[i] * STD + MEAN).clamp(0, 1)
+        out[i] = (corr.apply(x01, kind, sev, seed=i) - MEAN) / STD
+    return out
 
 
 def load_hybrid(config, device):
@@ -62,10 +76,11 @@ def intervene(graphs, mode):
 
 
 @torch.no_grad()
-def embed(model, loader, device, mode):
+def embed(model, loader, device, mode, corrupt=None):
     amp = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     E, L = [], []
     for images, graphs, labels in loader:
+        images = corrupt_batch(images, *corrupt) if corrupt else images
         img = images.to(device)
         g = intervene(graphs, mode).to(device)
         with autocast(device_type='cuda', dtype=amp, enabled=(device.type == 'cuda')):
@@ -75,6 +90,32 @@ def embed(model, loader, device, mode):
                 out = model(img, g)
         E.append(F.normalize(out['embedding'], p=2, dim=-1).float().cpu()); L.append(labels)
     return torch.cat(E), torch.cat(L)
+
+
+@torch.no_grad()
+def embed_cnn(cnn, loader, device, corrupt=None):
+    E, L = [], []
+    for images, graphs, labels in loader:
+        images = corrupt_batch(images, *corrupt) if corrupt else images
+        e = cnn.get_embedding(images.to(device))
+        E.append(F.normalize(e, p=2, dim=-1).float().cpu()); L.append(labels)
+    return torch.cat(E), torch.cat(L)
+
+
+def load_cnn(device):
+    from src.models.cnn_model import CNNMuzzleModel
+    ck = torch.load(PROJECT_ROOT / 'outputs/cnn/best_model.pt', map_location=device, weights_only=False)
+    c = ck.get('config', {})
+    m = CNNMuzzleModel(num_classes=ck.get('num_classes', 260), embedding_dim=c.get('embedding_dim', 512),
+                       backbone=c.get('backbone', 'efficientnet_b4'), arcface_scale=c.get('arcface_scale', 128.0),
+                       arcface_margin=c.get('arcface_margin', 0.35)).to(device)
+    m.load_state_dict(ck['model_state_dict']); m.eval()
+    return m
+
+
+def branch_correct(S, lbl):
+    Sm = S.copy(); np.fill_diagonal(Sm, -1e9)
+    return lbl[Sm.argmax(1)] == lbl
 
 
 def _forward_zero_nodes(model, images, graph):
@@ -92,6 +133,52 @@ def _forward_zero_nodes(model, images, graph):
     return {'embedding': F.normalize(model.projection_head(xp), p=2, dim=-1)}
 
 
+MODES = ['full', 'zero_edge_attr', 'shuffle_pos', 'randomize_edges', 'zero_node_feats']
+
+
+def run_interventions(model, loader, device, M, corrupt=None):
+    res, base = {}, None
+    for mode in MODES:
+        emb, lbl = embed(model, loader, device, mode, corrupt)
+        r = M.compute_all_metrics(emb, lbl)['summary']
+        m = {'rank1': r['rank_1_accuracy'], 'eer': r['eer'], 'auc': r['roc_auc']}
+        res[mode] = m
+        if mode == 'full':
+            base = m
+        print(f"  {mode:16s} R1={m['rank1']*100:5.1f}%  EER={m['eer']*100:5.2f}%  "
+              f"(dRank1 {(base['rank1']-m['rank1'])*100:+.1f})")
+    res['derived'] = {
+        'topology_sensitivity_rank1_drop': (base['rank1'] - res['randomize_edges']['rank1']) * 100,
+        'spatial_feature_sensitivity_rank1_drop': (base['rank1'] - res['shuffle_pos']['rank1']) * 100,
+        'edge_attr_reliance_rank1_drop': (base['rank1'] - res['zero_edge_attr']['rank1']) * 100,
+        'node_feature_reliance_rank1_drop': (base['rank1'] - res['zero_node_feats']['rank1']) * 100}
+    return res
+
+
+def fusion_case_analysis(cnn, hyb, loader, device, M, alpha=0.95):
+    """Rescued/harmed by fusion + performance on branch-disagreement subsets.
+    alpha = validation-selected CNN weight from Part 1 (0.95)."""
+    ce, cl = embed_cnn(cnn, loader, device)
+    he, hl = embed(hyb, loader, device, 'full')
+    lbl = cl.numpy()
+    Sc = (ce @ ce.t()).numpy(); Sh = (he @ he.t()).numpy()
+    Sf = alpha * Sc + (1 - alpha) * Sh
+    cnn_ok = branch_correct(Sc, lbl); hyb_ok = branch_correct(Sh, lbl); fus_ok = branch_correct(Sf, lbl)
+    rescued = int(np.sum(~cnn_ok & fus_ok))      # CNN wrong, fusion right
+    harmed = int(np.sum(cnn_ok & ~fus_ok))       # CNN right, fusion wrong
+    cnn_only = cnn_ok & ~hyb_ok                    # CNN-correct / Hybrid-wrong
+    hyb_only = hyb_ok & ~cnn_ok                    # Hybrid-correct / CNN-wrong
+    return {
+        'alpha': alpha, 'n': int(len(lbl)),
+        'cnn_rank1': float(cnn_ok.mean()), 'hybrid_rank1': float(hyb_ok.mean()),
+        'fusion_rank1': float(fus_ok.mean()),
+        'rescued_by_fusion': rescued, 'harmed_by_fusion': harmed, 'net_gain': rescued - harmed,
+        'n_cnn_correct_hybrid_wrong': int(cnn_only.sum()),
+        'fusion_keeps_cnn_only': float(fus_ok[cnn_only].mean()) if cnn_only.sum() else None,
+        'n_hybrid_correct_cnn_wrong': int(hyb_only.sum()),
+        'fusion_recovers_hybrid_only': float(fus_ok[hyb_only].mean()) if hyb_only.sum() else None}
+
+
 def main():
     config = load_config()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,27 +186,23 @@ def main():
                                     str(PROJECT_ROOT / config['dataset']['graph_dir']), config)
     model = load_hybrid(config, device)
     M = BiometricMetrics()
-
-    modes = ['full', 'zero_edge_attr', 'shuffle_pos', 'randomize_edges', 'zero_node_feats']
     out = {}
-    base = None
-    for mode in modes:
-        emb, lbl = embed(model, loaders['test'], device, mode)
-        r = M.compute_all_metrics(emb, lbl)['summary']
-        m = {'rank1': r['rank_1_accuracy'], 'eer': r['eer'], 'auc': r['roc_auc']}
-        out[mode] = m
-        if mode == 'full':
-            base = m
-        drop = (base['rank1'] - m['rank1']) * 100 if base else 0
-        print(f"  {mode:16s} R1={m['rank1']*100:5.1f}%  EER={m['eer']*100:5.2f}%  AUC={m['auc']:.4f}"
-              f"  (dRank1 {drop:+.1f})")
 
-    out['derived'] = {
-        'topology_sensitivity_rank1_drop': (base['rank1'] - out['randomize_edges']['rank1']) * 100,
-        'spatial_feature_sensitivity_rank1_drop': (base['rank1'] - out['shuffle_pos']['rank1']) * 100,
-        'edge_attr_reliance_rank1_drop': (base['rank1'] - out['zero_edge_attr']['rank1']) * 100,
-        'node_feature_reliance_rank1_drop': (base['rank1'] - out['zero_node_feats']['rank1']) * 100,
-    }
+    print("=== pathway intervention: CLEAN ===")
+    out['clean'] = run_interventions(model, loaders['test'], device, M, corrupt=None)
+    print("=== pathway intervention: SPATTER s3 (corrupted subset) ===")
+    out['spatter_s3'] = run_interventions(model, loaders['test'], device, M, corrupt=('spatter', 3))
+
+    print("=== fusion case analysis (rescued/harmed, disagreement splits) ===")
+    cnn = load_cnn(device)
+    out['fusion_cases'] = fusion_case_analysis(cnn, model, loaders['test'], device, M)
+    fc = out['fusion_cases']
+    print(f"  CNN R1={fc['cnn_rank1']*100:.1f}  Hybrid R1={fc['hybrid_rank1']*100:.1f}  "
+          f"Fusion R1={fc['fusion_rank1']*100:.1f}")
+    print(f"  rescued={fc['rescued_by_fusion']}  harmed={fc['harmed_by_fusion']}  net={fc['net_gain']}")
+    print(f"  Hybrid-correct/CNN-wrong n={fc['n_hybrid_correct_cnn_wrong']} "
+          f"fusion recovers {fc['fusion_recovers_hybrid_only']}")
+
     save_stats(out, str(PROJECT_ROOT / 'outputs/stats/pathway_intervention.json'))
     print("\nSaved -> outputs/stats/pathway_intervention.json")
 
