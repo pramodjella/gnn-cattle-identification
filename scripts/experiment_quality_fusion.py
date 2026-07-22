@@ -41,6 +41,8 @@ SHIFTS = [('clean', 0), ('blur', 1), ('blur', 3), ('blur', 5),
 
 
 def load_models(config, device):
+    """Load the trained CNN (EfficientNet-B4 + ArcFace) and Hybrid CNN-GNN
+    checkpoints in eval mode. Returns (cnn, hyb)."""
     from src.models.cnn_model import CNNMuzzleModel
     from src.models.hybrid_model import HybridCNNGNN
     ck = torch.load(PROJECT_ROOT / 'outputs/cnn/best_model.pt', map_location=device, weights_only=False)
@@ -85,6 +87,9 @@ DISAGREE_IDX = [11]             # branch disagreement
 
 
 def corrupt_batch(images_cpu, kind, sev):
+    """De-normalise a batch to [0,1], apply `kind` corruption (blur/brightness/
+    spatter) at severity `sev`, then re-normalise. Returns the batch unchanged
+    when kind=='clean'. In/Out: (B,3,H,W) ImageNet-normalised tensor."""
     if kind == 'clean' or sev == 0:
         return images_cpu
     out = torch.empty_like(images_cpu)
@@ -118,6 +123,9 @@ def embed_shift(cnn, hyb, loader, device, kind, sev):
 
 class _GV: pass
 def _subgraph(batch, mask):
+    """Slice one graph out of a batched PyG graph using boolean node `mask`,
+    re-indexing edges and carrying `pos`. Returns a lightweight object with
+    .x/.edge_index/.pos used for per-sample graph-quality scoring."""
     v = _GV(); idx = mask.nonzero(as_tuple=True)[0]
     v.x = batch.x[idx]; remap = -torch.ones(batch.x.size(0), dtype=torch.long); remap[idx] = torch.arange(idx.size(0))
     ei = batch.edge_index; em = mask[ei[0]] & mask[ei[1]]
@@ -127,10 +135,14 @@ def _subgraph(batch, mask):
 
 
 def sim(emb):
+    """Cosine self-similarity matrix. In: (N,D) tensor; Out: (N,N) numpy array."""
     e = F.normalize(emb, p=2, dim=-1); return (e @ e.t()).numpy()
 
 
 def metrics_from_sim(S, lbl, m):
+    """Score a self-similarity matrix against labels. In: S (N,N), lbl (N,),
+    a BiometricMetrics instance `m`. Out: dict {rank1, rank5, eer, auc,
+    tar1 (TAR@FAR=1%)}."""
     from sklearn.metrics import roc_curve, auc
     cmc, ranks = m._compute_cmc(S, lbl)
     gen, imp = m._get_score_distributions(S, lbl)
@@ -173,6 +185,9 @@ def fit_gate_eval(Xv, Xt, disagree, y, Stc, Sth, tln, M, drop_idx=None):
 
 
 def main():
+    """Run the six-policy quality-aware fusion study over clean + blur/brightness/
+    spatter (severities 1/3/5), tuning every gate on validation only, plus the
+    CNN+ProtoN and gate feature-group ablations; save quality_fusion_results.json."""
     config = load_config()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     pre = str(PROJECT_ROOT / config['dataset']['processed_dir'])

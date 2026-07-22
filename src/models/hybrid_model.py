@@ -353,6 +353,8 @@ class HybridCNNGNN(nn.Module):
             return self.forward(images, graph_batch)['embedding']
 
     def summary(self):
+        """Return a dict of parameter counts split across the CNN backbone and the
+        graph head (node_proj + edge_conv + trm + projection_head)."""
         cnn_params = sum(p.numel() for p in self.cnn_features.parameters())
         gnn_params = (sum(p.numel() for p in self.node_proj.parameters()) +
                       sum(p.numel() for p in self.edge_conv.parameters()) +

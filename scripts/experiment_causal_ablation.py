@@ -35,6 +35,8 @@ from scripts.evaluate_explainability import (
 
 
 def load_test_graphs(config):
+    """Load the precomputed test-split keypoint graphs and the label mapping.
+    Returns (list[Data], {'num_classes': int})."""
     graph_dir = PROJECT_ROOT / config['dataset']['graph_dir']
     with open(graph_dir / 'label_mapping.json') as f:
         num_classes = len(json.load(f))
@@ -44,6 +46,8 @@ def load_test_graphs(config):
 
 @torch.no_grad()
 def embed(model, data, device):
+    """Embed a single graph with the GNN. In: one PyG Data; Out: (D,) L2-normalised
+    embedding on CPU."""
     out = model(_prep(data, device))
     return F.normalize(out['embedding'], p=2, dim=-1).squeeze(0).cpu()
 
@@ -75,12 +79,14 @@ def ablate(data, importance, frac, strategy, rng):
 
 
 def main():
+    """Ablate top-/random-/bottom-k% Grad-CAM nodes (GNN branch) and measure the
+    causal effect on identity (dcos + flip + Rank-1/EER, with 95% bootstrap CIs);
+    save outputs/stats/causal_ablation.json."""
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', default='gnn_v3', choices=['gnn_v3', 'gnn_v4'])
     ap.add_argument('--num-graphs', type=int, default=120)
     ap.add_argument('--seed', type=int, default=0)
     args = ap.parse_args()
-
     rng = np.random.default_rng(args.seed)
     torch.manual_seed(args.seed)
     config = load_config()

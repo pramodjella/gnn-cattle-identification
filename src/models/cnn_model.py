@@ -169,6 +169,7 @@ class CNNMuzzleModel(nn.Module):
         return result
 
     def summary(self):
+        """Return a dict of parameter counts (total / trainable / backbone / head)."""
         total_params = sum(p.numel() for p in self.parameters())
         trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
         backbone_params = sum(p.numel() for p in self.features.parameters())

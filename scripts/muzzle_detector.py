@@ -38,6 +38,8 @@ _IMG_EXT = ('.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff')
 
 
 def train(args):
+    """Fine-tune a YOLOv8n single-class ('muzzle') detector on args.data (a YOLO
+    data.yaml) and save the best weights under outputs/detector/<name>/."""
     from ultralytics import YOLO
     model = YOLO(args.base)  # e.g. yolov8n.pt (downloads pretrained weights)
     model.train(
@@ -56,6 +58,9 @@ def train(args):
 
 
 def crop(args):
+    """Run the trained detector over a folder of wide farm-scene images and write
+    the highest-confidence muzzle crop per image (EXIF-aware, degenerate-box guard)
+    — the deployment front-end and the external-dataset preprocessor."""
     from ultralytics import YOLO
     from PIL import Image, ImageOps
     model = YOLO(args.weights)
@@ -108,11 +113,14 @@ def crop(args):
 
 
 def _cuda():
+    """True if a CUDA device is available (selects GPU vs CPU for YOLO)."""
     import torch
     return torch.cuda.is_available()
 
 
 def main():
+    """CLI entry point: `train` fine-tunes the detector, `crop` runs inference to
+    extract muzzle crops."""
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest='cmd', required=True)
 

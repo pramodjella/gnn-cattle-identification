@@ -34,6 +34,8 @@ STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 
 
 def corrupt_batch(images_cpu, kind, sev):
+    """De-normalise, apply `kind`/`sev` corruption, re-normalise. Pass-through when
+    kind is None. In/Out: (B,3,H,W) ImageNet-normalised tensor."""
     if kind is None or sev == 0:
         return images_cpu
     out = torch.empty_like(images_cpu)
@@ -44,6 +46,7 @@ def corrupt_batch(images_cpu, kind, sev):
 
 
 def load_hybrid(config, device):
+    """Load the trained Hybrid CNN-GNN checkpoint in eval mode."""
     from src.models.hybrid_model import HybridCNNGNN
     hk = torch.load(PROJECT_ROOT / 'outputs/hybrid/best_model.pt', map_location=device, weights_only=False)
     m = HybridCNNGNN(num_classes=hk.get('num_classes', 260), config=config, pretrained=False).to(device)
@@ -77,6 +80,9 @@ def intervene(graphs, mode):
 
 @torch.no_grad()
 def embed(model, loader, device, mode, corrupt=None):
+    """Embed the Hybrid over a loader under a graph-pathway intervention `mode`
+    (full / zero_edge_attr / shuffle_pos / randomize_edges / zero_node_feats),
+    optionally corrupting images first. Returns (embeddings, labels)."""
     amp = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     E, L = [], []
     for images, graphs, labels in loader:
@@ -94,6 +100,8 @@ def embed(model, loader, device, mode, corrupt=None):
 
 @torch.no_grad()
 def embed_cnn(cnn, loader, device, corrupt=None):
+    """Embed the CNN branch over a loader (optionally corrupting images first).
+    Returns (embeddings, labels) — used for the fusion case analysis."""
     E, L = [], []
     for images, graphs, labels in loader:
         images = corrupt_batch(images, *corrupt) if corrupt else images
@@ -103,6 +111,7 @@ def embed_cnn(cnn, loader, device, corrupt=None):
 
 
 def load_cnn(device):
+    """Load the trained EfficientNet-B4 CNN in eval mode (for fusion analysis)."""
     from src.models.cnn_model import CNNMuzzleModel
     ck = torch.load(PROJECT_ROOT / 'outputs/cnn/best_model.pt', map_location=device, weights_only=False)
     c = ck.get('config', {})
@@ -114,6 +123,8 @@ def load_cnn(device):
 
 
 def branch_correct(S, lbl):
+    """Per-probe closed-set Rank-1 correctness (self excluded). In: S (N,N),
+    lbl (N,); Out: boolean (N,) — True where the nearest neighbour matches."""
     Sm = S.copy(); np.fill_diagonal(Sm, -1e9)
     return lbl[Sm.argmax(1)] == lbl
 
@@ -137,6 +148,9 @@ MODES = ['full', 'zero_edge_attr', 'shuffle_pos', 'randomize_edges', 'zero_node_
 
 
 def run_interventions(model, loader, device, M, corrupt=None):
+    """Run all five graph-pathway interventions and score each (Rank-1/EER/AUC),
+    optionally under corruption. Returns a dict of per-mode metrics + derived
+    sensitivities (topology / spatial-feature / edge-attr / node-feature)."""
     res, base = {}, None
     for mode in MODES:
         emb, lbl = embed(model, loader, device, mode, corrupt)
@@ -180,6 +194,8 @@ def fusion_case_analysis(cnn, hyb, loader, device, M, alpha=0.95):
 
 
 def main():
+    """Run the Stage-3 pathway intervention clean and under spatter-s3, plus the
+    fusion rescued/harmed case analysis; save outputs/stats/pathway_intervention.json."""
     config = load_config()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     loaders = create_hybrid_loaders(str(PROJECT_ROOT / config['dataset']['processed_dir']),

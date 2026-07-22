@@ -28,6 +28,7 @@ GRID = 8  # Grad-CAM grid resolution (EfficientNet-B4 @ 256 -> 8x8)
 
 
 def bootstrap_ci(vec, n_boot=2000, seed=0):
+    """95% percentile CI of the mean of `vec` by case resampling. Returns (lo, hi)."""
     rng = np.random.default_rng(seed)
     v = np.asarray(vec, float)
     means = v[rng.integers(0, len(v), size=(n_boot, len(v)))].mean(1)
@@ -35,6 +36,7 @@ def bootstrap_ci(vec, n_boot=2000, seed=0):
 
 
 def load_cnn(device):
+    """Load the trained EfficientNet-B4 CNN (with ArcFace head) in eval mode."""
     from src.models.cnn_model import CNNMuzzleModel
     ck = torch.load(PROJECT_ROOT / 'outputs/cnn/best_model.pt', map_location=device, weights_only=False)
     c = ck.get('config', {})
@@ -48,6 +50,8 @@ def load_cnn(device):
 class GradCAM:
     """Per-image Grad-CAM on the CNN's last conv block -> GRIDxGRID map."""
     def __init__(self, model):
+        """Register forward/backward hooks on the CNN's last conv block and cache
+        the L2-normalised ArcFace class prototypes as the Grad-CAM targets."""
         self.model = model
         self.act = self.grad = None
         layer = model.features[-1]
@@ -56,6 +60,8 @@ class GradCAM:
         self.proto = F.normalize(model.arcface.arcface_head.weight, p=2, dim=1).detach()
 
     def cam(self, img, label):
+        """Grad-CAM for one image w.r.t. its matched-identity prototype.
+        In: img (1,3,H,W), label int; Out: (GRID,GRID) importance map (numpy)."""
         self.model.zero_grad()
         emb = self.model(img)['embedding']
         logit = (emb @ self.proto.t())[0, label]
@@ -68,6 +74,8 @@ class GradCAM:
 
 @torch.no_grad()
 def embed_batch(model, imgs, device, bs=64):
+    """Embed a stack of images in mini-batches. In: (N,3,H,W); Out: (N,D)
+    L2-normalised embeddings on CPU."""
     out = []
     for i in range(0, imgs.size(0), bs):
         e = model.get_embedding(imgs[i:i + bs].to(device))
@@ -96,6 +104,9 @@ def mask_cells(imgs, cams, frac, strat, rng):
 
 
 def main():
+    """Grad-CAM region ablation on the full test set: mask top-/random-/bottom-k%
+    of 32x32 CNN regions and measure dcos, flip, Rank-1 drop, EER rise (with
+    bootstrap CIs); save outputs/stats/causal_ablation_cnn.json."""
     config = load_config()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     loaders = create_hybrid_loaders(str(PROJECT_ROOT / config['dataset']['processed_dir']),

@@ -42,6 +42,7 @@ COUNTS = {'correct': 20, 'false_accept': 10, 'false_reject': 10, 'cnn_only': 10,
 
 
 def load_cnn(device):
+    """Load the trained EfficientNet-B4 CNN in eval mode."""
     from src.models.cnn_model import CNNMuzzleModel
     ck = torch.load(PROJECT_ROOT / 'outputs/cnn/best_model.pt', map_location=device, weights_only=False)
     c = ck.get('config', {})
@@ -53,7 +54,10 @@ def load_cnn(device):
 
 
 class CNNGradCAM:
+    """Grad-CAM for the CNN branch: attributes the matched-identity similarity back
+    to spatial regions of the muzzle image (last conv block)."""
     def __init__(self, model):
+        """Hook the CNN's last conv block and cache ArcFace prototypes as targets."""
         self.model = model; self.act = self.grad = None
         layer = model.features[-1]
         layer.register_forward_hook(lambda m, i, o: setattr(self, 'act', o.detach()))
@@ -61,6 +65,8 @@ class CNNGradCAM:
         self.proto = F.normalize(model.arcface.arcface_head.weight, p=2, dim=1).detach()
 
     def cam(self, img, label):
+        """Grad-CAM heatmap for one image w.r.t. its identity prototype, upsampled
+        to 256x256. In: img (1,3,256,256), label int; Out: (256,256) map in [0,1]."""
         self.model.zero_grad()
         logit = (self.model(img)['embedding'] @ self.proto.t())[0, label]
         logit.backward()
@@ -73,6 +79,7 @@ class CNNGradCAM:
 
 @torch.no_grad()
 def cnn_embed(model, imgs, device, bs=64):
+    """Batched CNN embeddings. In: (N,3,256,256); Out: (N,D) L2-normalised, CPU."""
     out = []
     for i in range(0, imgs.size(0), bs):
         out.append(F.normalize(model.get_embedding(imgs[i:i+bs].to(device)), p=2, dim=-1).float().cpu())
@@ -81,6 +88,7 @@ def cnn_embed(model, imgs, device, bs=64):
 
 @torch.no_grad()
 def gnn_embed(model, graphs, device):
+    """Embed a list of graphs with the GNN. Out: (N,D) L2-normalised, CPU."""
     E = []
     for g in graphs:
         E.append(F.normalize(model(_prep(g, device))['embedding'], p=2, dim=-1).squeeze(0).cpu())
@@ -88,6 +96,8 @@ def gnn_embed(model, graphs, device):
 
 
 def eer_threshold(S, lbl):
+    """Cosine-similarity threshold at the Equal Error Rate, used to define
+    false-accept / false-reject cases. In: S (N,N), lbl (N,); Out: float."""
     from sklearn.metrics import roc_curve
     M = BiometricMetrics(); gen, imp = M._get_score_distributions(S, lbl)
     fpr, tpr, thr = roc_curve([1]*len(gen)+[0]*len(imp), list(gen)+list(imp))
@@ -96,10 +106,14 @@ def eer_threshold(S, lbl):
 
 
 def denorm(img):
+    """Undo ImageNet normalisation for display. In: (3,H,W); Out: (H,W,3) in [0,1]."""
     return (img.cpu() * STD + MEAN).clamp(0, 1).permute(1, 2, 0).numpy()
 
 
 def main():
+    """Build the stratified Stage-1 case set (correct / false-accept / false-reject /
+    branch-disagreement) and render the side-by-side CNN-vs-GNN attribution montage;
+    save stage1_cases.json + fig_stage1_attribution.{png,pdf}."""
     config = load_config()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     loaders = create_hybrid_loaders(str(PROJECT_ROOT / config['dataset']['processed_dir']),
