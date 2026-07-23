@@ -26,6 +26,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.wildlife_probe import load_backbone, embed_paths, verif_eer_from_scores
 from src.evaluation.calibration import snorm
+from src.utils import save_stats
 
 
 def domain_of(df, dataset):
@@ -129,6 +130,21 @@ def main():
         md, lo, hi = ci
         sig = 'SIGNIFICANT (CI excludes 0)' if lo > 0 else 'n.s.'
         print(f"  recovery (base-snorm) EER = {md*100:+.3f}%  95% CI [{lo*100:+.3f},{hi*100:+.3f}] -> {sig}")
+
+    # Persist results (reproducibility: every paper number must trace to a committed file).
+    out = {
+        'dataset': args.dataset, 'backbone': args.backbone,
+        'shift': 'DATE' if args.dataset == 'MacaqueFaces' else 'VIDEO',
+        'n_images': int(len(lbl)), 'n_ids': int(len(set(lbl))),
+        'random_in_domain': {'baseline_eer': rnd_base, 'snorm_eer': rnd_sn},
+        'natural_cross_domain': {'baseline_eer': nat_base, 'snorm_eer': nat_sn},
+        'domain_gap_eer': nat_base - rnd_base,
+        'snorm_recovery_relative_pct': rec,
+        'recovery_bootstrap': ({'mean': ci[0], 'ci95': [ci[1], ci[2]],
+                                'significant': bool(ci[1] > 0)} if ci else None),
+    }
+    save_stats(out, str(PROJECT_ROOT / f'outputs/stats/wildlife_natural_{args.dataset}_{args.backbone}.json'))
+    print(f"\nSaved -> outputs/stats/wildlife_natural_{args.dataset}_{args.backbone}.json")
 
 
 if __name__ == '__main__':

@@ -1,0 +1,25 @@
+{
+  "dataset": "IPanda50",
+  "backbone": "dinov2",
+  "shift": "VIDEO",
+  "n_images": 1470,
+  "n_ids": 49,
+  "random_in_domain": {
+    "baseline_eer": 0.3796910430839002,
+    "snorm_eer": 0.31414399092970524
+  },
+  "natural_cross_domain": {
+    "baseline_eer": 0.4075409544159544,
+    "snorm_eer": 0.35326151471984807
+  },
+  "domain_gap_eer": 0.027849911332054167,
+  "snorm_recovery_relative_pct": 13.318769342799918,
+  "recovery_bootstrap": {
+    "mean": 0.0553392094017094,
+    "ci95": [
+      0.039900878442545085,
+      0.07186312915479587
+    ],
+    "significant": true
+  }
+}

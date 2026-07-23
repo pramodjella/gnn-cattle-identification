@@ -1,0 +1,25 @@
+{
+  "dataset": "MacaqueFaces",
+  "backbone": "dinov2",
+  "shift": "DATE",
+  "n_images": 1020,
+  "n_ids": 34,
+  "random_in_domain": {
+    "baseline_eer": 0.16559714795008912,
+    "snorm_eer": 0.0906714200831848
+  },
+  "natural_cross_domain": {
+    "baseline_eer": 0.29198065255179534,
+    "snorm_eer": 0.20668101343409745
+  },
+  "domain_gap_eer": 0.12638350460170622,
+  "snorm_recovery_relative_pct": 29.214140859064734,
+  "recovery_bootstrap": {
+    "mean": 0.084427132897698,
+    "ci95": [
+      0.07192664822718481,
+      0.09787976028483825
+    ],
+    "significant": true
+  }
+}

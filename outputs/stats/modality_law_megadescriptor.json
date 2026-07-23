@@ -1,0 +1,93 @@
+{
+  "backbone": "megadescriptor",
+  "shift": "spatter:3",
+  "datasets": {
+    "MacaqueFaces": {
+      "modality_prior": "face",
+      "n_gallery": 238,
+      "n_probe": 272,
+      "n_ids": 34,
+      "eer": {
+        "baseline": 0.04055258467023171,
+        "s_norm": 0.02891042780748662,
+        "quality_snorm": 0.028854723707664877,
+        "k_recip_snorm": 0.032419786096256675
+      },
+      "benefit_qs": 5.570409982174479e-05,
+      "benefit_qs_ci": [
+        -0.0002228163992869861,
+        0.00022281639928699304
+      ],
+      "benefit_kr": -0.0035093582887700536,
+      "benefit_kr_ci": [
+        -0.0054617869875223215,
+        0.0001671122994652413
+      ],
+      "stats": {
+        "reciprocal_consistency": 0.5629108548164368,
+        "reciprocity_rate": 0.7458823323249817,
+        "top1_margin": 0.28704044222831726
+      }
+    },
+    "CZoo": {
+      "modality_prior": "face",
+      "n_gallery": 168,
+      "n_probe": 192,
+      "n_ids": 24,
+      "eer": {
+        "baseline": 0.04268568840579708,
+        "s_norm": 0.030230978260869568,
+        "quality_snorm": 0.03192934782608696,
+        "k_recip_snorm": 0.041893115942029005
+      },
+      "benefit_qs": -0.001698369565217392,
+      "benefit_qs_ci": [
+        -0.008268229166666648,
+        0.004987545289855049
+      ],
+      "benefit_kr": -0.011662137681159437,
+      "benefit_kr_ci": [
+        -0.02425271739130433,
+        0.007246376811594166
+      ],
+      "stats": {
+        "reciprocal_consistency": 0.5310860276222229,
+        "reciprocity_rate": 0.753333330154419,
+        "top1_margin": 0.3081776797771454
+      }
+    },
+    "IPanda50": {
+      "modality_prior": "pattern",
+      "n_gallery": 350,
+      "n_probe": 400,
+      "n_ids": 50,
+      "eer": {
+        "baseline": 0.13352040816326533,
+        "s_norm": 0.12267857142857146,
+        "quality_snorm": 0.12204081632653063,
+        "k_recip_snorm": 0.15823979591836734
+      },
+      "benefit_qs": 0.000637755102040824,
+      "benefit_qs_ci": [
+        -0.002936862244897925,
+        0.007197066326530584
+      ],
+      "benefit_kr": -0.03556122448979589,
+      "benefit_kr_ci": [
+        -0.04689349489795914,
+        -0.017267857142857116
+      ],
+      "stats": {
+        "reciprocal_consistency": 0.3591398298740387,
+        "reciprocity_rate": 0.6817333102226257,
+        "top1_margin": 0.29934412240982056
+      }
+    }
+  },
+  "correlation": {
+    "consistency_vs_benefit_qs": -0.5,
+    "reciprocity_vs_benefit_qs": -1.0,
+    "consistency_vs_benefit_kr": 1.0,
+    "reciprocity_vs_benefit_kr": 0.5
+  }
+}

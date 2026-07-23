@@ -6,6 +6,44 @@ Every claim below is checked against `outputs/stats/*.json`.*
 
 ---
 
+## 0. DE-RISK OUTCOME (2026-07-24) — the modality-dependence thesis is REFUTED. Do not pursue it.
+
+I ran the make-or-break experiment (`scripts/experiment_modality_law.py`, committed
+`outputs/stats/modality_law_{megadescriptor,dinov2}.json`): for MacaqueFaces / CZoo / IPanda50,
+per-identity-template enrollment, clean gallery vs spatter-3 probe, compute the label-free
+`reciprocal_consistency` statistic and the structural-signal benefit (quality-snorm and
+k-reciprocal vs plain S-norm) with probe-bootstrap CIs. **The thesis in §3 does not survive.**
+
+**Findings (honest):**
+- **The predicted face-advantage is absent / reversed.** On DINOv2 (the general backbone where
+  a gap exists), quality-snorm significantly helps **IPanda (the PATTERN)** (+2.61 pt, CI
+  [+0.75,+4.49] excludes 0), while on both FACES it is positive but **not significant** (+1.54,
+  +1.51; CIs include 0). This is the *opposite* of "structural helps faces, not patterns."
+- **The label-free statistic does not predict the benefit.** On DINOv2 it does not even separate
+  faces from patterns (MacaqueFaces 0.170 < IPanda 0.192 < CZoo 0.220); consistency-vs-benefit
+  Spearman is −0.5 (wrong sign).
+- **On MegaDescriptor (specialized, ~3% face EER) there is no benefit anywhere** — no gap, nothing
+  to calibrate. The effect is entangled with the conditional law and is backbone-conditional.
+- **k-reciprocal hurts on every dataset/backbone** (−4.6 to −6.9 pt on DINOv2).
+- Even the committed bakeoff it was built on doesn't reconcile: `calibration_bakeoff.json` called
+  IPanda quality-snorm *n.s.*; my controlled run makes it the one *significant* win. The benefits
+  are small (1–3 pt), protocol- and backbone-sensitive, and not modality-aligned.
+
+**Verdict:** the "structural signals are modality-dependent, predicted by a reliability statistic"
+story is not real enough to carry a paper. GraphCal (which this was meant to motivate) is
+**not justified** — building it would have been weeks spent on a false premise. The fail-fast worked.
+
+**What the data DOES robustly support (the pivot):** plain **S-norm recovers cross-domain EER on
+every backbone and modality** (DINOv2: MacaqueFaces 26.4→15.1, CZoo 38.1→21.4, IPanda 44.3→38.7),
+while structural add-ons (quality-snorm, k-reciprocal) give at best small, inconsistent gains and
+k-reciprocal reliably *hurts*. → **Strengthen the EXISTING calibration paper's honest thesis**
+(the conditional law + "nothing robustly beats plain S-norm") with this NEW committed multi-backbone
+evidence, and resolve the §7 provenance blockers by regenerating those numbers (now that
+`wildlife_natural_shift.py` persists JSON). The sections below are kept as a record of the
+(refuted) exploration.
+
+---
+
 ## 1. Where the current thesis stands, honestly
 
 **Current thesis (paper2):** *cross-domain re-ID degradation is a score-calibration problem,

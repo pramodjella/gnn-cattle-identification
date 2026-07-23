@@ -137,7 +137,7 @@ recovery (baseline minus S-norm) with a 95% bootstrap confidence interval over r
 | Muzzle CNN (ours) | cattle muzzle | cross-dataset (24 IDs) | 14.8% | 11.4% | +3.4 pt | large-EER regime |
 | MegaDescriptor | macaque face | corruption (spatter) | 6.24% | 5.34% | +0.9 pt | large-EER regime |
 | MegaDescriptor | Friesian coat | corruption (spatter) | 2.77% | 1.15% | +1.6 pt | large-EER regime |
-| MegaDescriptor | panda pattern | natural (cross-video) | 2.63% | 2.29% | +0.3 pt | [−0.33, +0.14] **n.s.** |
+| MegaDescriptor | panda pattern | natural (cross-video) | 2.63% | 2.29% | −0.04 pt | [−0.33, +0.14] **n.s.** |
 | MegaDescriptor | macaque face | natural (date) | 0.08% | 0.08% | 0 | no gap |
 | DINOv2 (general) | panda pattern | natural (cross-video) | 40.8% | 35.3% | +5.5 pt | [+4.0, +7.2] **sig** |
 | DINOv2 (general) | macaque face | natural (date) | 29.2% | 20.7% | +8.4 pt | [+7.2, +9.8] **sig** |
