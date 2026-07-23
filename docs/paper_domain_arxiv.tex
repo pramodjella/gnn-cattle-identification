@@ -154,7 +154,8 @@ is Euclidean distance, $\theta_{ij}$ the angle, and rel\_scale the relative desc
 
 \paragraph{A. CNN baseline (EfficientNet-B4 + ArcFace).}
 The baseline uses an EfficientNet-B4 backbone pre-trained on ImageNet, taking the
-$256\times256$ CLAHE-enhanced muzzle image as input, pooled to a 512-d embedding and
+$256\times256$ muzzle image (enhanced with Contrast-Limited Adaptive Histogram
+Equalization, CLAHE) as input, pooled to a 512-d embedding and
 optimised with the ArcFace (additive angular margin) loss
 \begin{equation}
 L_{\text{Arc}} = -\frac{1}{B}\sum_{i=1}^{B}
@@ -617,8 +618,8 @@ role as a verification-sharpening complement rather than a competitive ranker.
     \midrule
     Full Hybrid (unperturbed) & 92.0 & 1.88 & --- \\
     Zero edge attributes      & 92.0 & 1.88 & $0.0$ \\
-    Shuffle keypoint positions & 92.3 & 1.84 & $-0.3$ \\
-    Randomise graph edges     & 92.2 & 1.82 & $-0.2$ \\
+    Shuffle keypoint positions & 92.3 & 1.84 & $+0.3$ \\
+    Randomise graph edges     & 92.2 & 1.82 & $+0.2$ \\
     \textbf{Zero node features} & \textbf{0.1} & \textbf{50.2} & $\mathbf{-91.9}$ \\
     \bottomrule
   \end{tabular}

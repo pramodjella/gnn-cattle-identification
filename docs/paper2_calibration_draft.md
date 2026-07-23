@@ -21,7 +21,7 @@ corruption, and natural cross-session splits), we show that cross-domain verific
 primarily a problem of *score mis-calibration* rather than feature quality, and that adaptive
 symmetric score normalization (S-norm) recovers a significant fraction of it at zero training cost.
 Crucially, we characterize *when* the recovery is significant: it scales with a measurable
-mis-calibration signal (the baseline equal-error rate). In a controlled comparison on identical
+mis-calibration signal (the baseline equal-error rate, EER). In a controlled comparison on identical
 data and shift, a backbone that is well-calibrated for the target species shows no gap and no
 benefit, whereas a general backbone that is mis-calibrated for re-identification degrades by more
 than twelve EER points and is significantly recovered by the same calibration step. Feature-level
@@ -115,7 +115,7 @@ dataset; (b) MegaDescriptor-L-384 (re-ID foundation model); (c) DINOv2 ViT-B/14 
 self-supervised model), used as a frozen embedding extractor.
 
 **Datasets / modalities.** Cattle muzzle (two external cross-datasets), MacaqueFaces (primate
-face), FriesianCattle2017 (cattle coat), IPanda50 (panda coat pattern).
+face), CZoo (chimpanzee face), FriesianCattle2017 (cattle coat), IPanda50 (panda coat pattern).
 
 **Domain-shift protocols.** (i) *Cross-dataset*: train on one cattle dataset, enroll+probe a
 different one (real acquisition shift). (ii) *Corruption*: clean gallery, probes corrupted with

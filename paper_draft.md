@@ -47,7 +47,7 @@ where $d_{ij}$ is the Euclidean distance, $\theta_{ij}$ is the angle, and rel_sc
 ### 2.3 Proposed Architectures
 
 #### A. CNN Baseline (EfficientNet-B4 + ArcFace)
-The baseline CNN utilizes an **EfficientNet-B4** backbone pre-trained on ImageNet. It takes the $256 \times 256$ CLAHE-enhanced muzzle image as input. The final convolutional feature maps are pooled into a 512-dimensional embedding space. The network is optimized using the **ArcFace (Additive Angular Margin) Loss**:
+The baseline CNN utilizes an **EfficientNet-B4** backbone pre-trained on ImageNet. It takes the $256 \times 256$ muzzle image (enhanced with Contrast-Limited Adaptive Histogram Equalization, CLAHE) as input. The final convolutional feature maps are pooled into a 512-dimensional embedding space. The network is optimized using the **ArcFace (Additive Angular Margin) Loss**:
 $$L_{Arc} = -\frac{1}{B} \sum_{i=1}^B \log \frac{e^{s \cdot \cos(\theta_{y_i} + m)}}{e^{s \cdot \cos(\theta_{y_i} + m)} + \sum_{j \neq y_i} e^{s \cdot \cos \theta_j}}$$
 where $s$ is the logit scale (128.0) and $m$ is the angular margin (0.35).
 
@@ -201,8 +201,8 @@ Both branches' attributions are causally faithful. One asymmetry is telling: spa
 | :--- | :---: | :---: | :---: |
 | Full Hybrid (unperturbed) | 92.0 | 1.88 | — |
 | Zero edge attributes | 92.0 | 1.88 | 0.0 |
-| Shuffle keypoint positions | 92.3 | 1.84 | −0.3 |
-| Randomise graph edges | 92.2 | 1.82 | −0.2 |
+| Shuffle keypoint positions | 92.3 | 1.84 | +0.3 |
+| Randomise graph edges | 92.2 | 1.82 | +0.2 |
 | **Zero node features** | **0.1** | **50.2** | **−91.9** |
 
 This is not an accident of the architecture but a direct consequence of it: the Dynamic EdgeConv rebuilds its neighbourhood graph in *learned feature space* at every layer (so the static geometric edge set is overridden), the default configuration does not consume edge attributes, and permutation-invariant mean+max pooling makes the embedding invariant to keypoint reindexing. On both clean and corrupted data the Hybrid's identity signal is carried by CNN texture and feature-space message passing — not by the input muzzle *geometry*. **What fusion rescues:** tallying the val-tuned CNN+Hybrid blend against the CNN alone, fusion rescues 17 probes the CNN gets wrong while harming 9 it gets right (net +8, matching the +0.9-point Rank-1 gain), and recovers 12 of the 13 (92%) Hybrid-correct/CNN-wrong probes. The graph branch's contribution is concrete but small and targeted — a verification-sharpening complement, not a competitive ranker. Together, the three stages make the explainability claims falsifiable and reproducible — the standard we advocate for biometric-identification papers — rather than decorative.
