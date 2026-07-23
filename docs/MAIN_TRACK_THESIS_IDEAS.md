@@ -194,6 +194,15 @@ These must be fixed during the rework; they are correctness/provenance issues, n
    own CI and estimator.
 3. **Abstract "over twelve EER points" vs body "29.2% EER"** — reconcile the anchor (degradation
    from DINOv2's own in-domain EER vs absolute) once (1) is regenerated.
-4. **"large-EER regime" label** on MegaDescriptor rows (baseline EER 2.77%, 6.24%) sits awkwardly
-   beside the panda-natural row (2.63%, n.s.). Since 2.63 ≈ 2.77, bootstrap-CI those rows or soften
-   the label to stay consistent with the conditional law.
+4. **The central "conditional law" is MIS-FRAMED (substantive, found 2026-07-24).** The paper states
+   recovery "tracks the baseline EER" (caption + §law), but Table 1's own rows refute it: the
+   corruption rows at baseline EER **6.24%** and **2.77%** show *significant* recovery and are labeled
+   "large-EER regime", while the panda-natural row at **2.63%** (≈2.77%) is *n.s.* Nearly identical
+   baseline EER, opposite verdicts. The true predictor is the **shift-induced GAP** (degradation from
+   in-domain), not the absolute baseline EER — spatter is a strong shift (large gap → recovery even at
+   low absolute EER); the mild panda natural shift is a small gap (no recovery). **Fix:** reframe the
+   law around the gap (report per-row in-domain→shifted gap; keep baseline EER as a correlate that
+   holds except under strong synthetic corruption), and relabel the corruption rows ("strong shift",
+   not "large-EER regime"). This is a change to the paper's central claim — needs an explicit decision,
+   not a silent edit. The committed natural-shift JSONs already provide the gap for the natural rows;
+   the corruption rows need their clean baselines recorded to state the gap.
