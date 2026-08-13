@@ -584,6 +584,11 @@ def main():
     parser.add_argument('--epochs-proton', type=int, default=30, help='Epochs for ProtoN')
     parser.add_argument('--epochs-hybrid-p1', type=int, default=25, help='Hybrid Phase 1 epochs')
     parser.add_argument('--epochs-hybrid-p2', type=int, default=5, help='Hybrid Phase 2 epochs')
+    parser.add_argument('--models', nargs='+', default=['CNN', 'ProtoN', 'Hybrid'],
+                        choices=['CNN', 'ProtoN', 'Hybrid'],
+                        help='Which models to cross-validate (skip others to spend compute on one).')
+    parser.add_argument('--out', default='cross_validation_results.json',
+                        help='Output filename under outputs/stats/ (use a distinct name for partial runs).')
     args = parser.parse_args()
 
     config = load_config()
@@ -719,38 +724,41 @@ def main():
         test_samples = [all_samples[idx] for idx in test_idx]
 
         # --- A. CNN ---
-        print("\n  Training CNN baseline...")
-        t0 = time.time()
-        cnn_metrics = train_cnn_fold(
-            train_samples, test_samples, num_classes, device,
-            config.get('cnn', {}), args.epochs_cnn, config['preprocessing']['image_size']
-        )
-        print(f"  CNN complete (took {time.time()-t0:.1f}s) | Rank-1: {cnn_metrics['rank1']*100:.2f}% | EER: {cnn_metrics['eer']*100:.2f}%")
-        for k, v in cnn_metrics.items():
-            cv_results['CNN'][k].append(v)
+        if 'CNN' in args.models:
+            print("\n  Training CNN baseline...")
+            t0 = time.time()
+            cnn_metrics = train_cnn_fold(
+                train_samples, test_samples, num_classes, device,
+                config.get('cnn', {}), args.epochs_cnn, config['preprocessing']['image_size']
+            )
+            print(f"  CNN complete (took {time.time()-t0:.1f}s) | Rank-1: {cnn_metrics['rank1']*100:.2f}% | EER: {cnn_metrics['eer']*100:.2f}%")
+            for k, v in cnn_metrics.items():
+                cv_results['CNN'][k].append(v)
 
         # --- B. ProtoN ---
-        print("\n  Training ProtoN GNN...")
-        t0 = time.time()
-        proton_metrics = train_proton_fold(
-            train_samples, test_samples, num_classes, device,
-            config.get('proton', {}), args.epochs_proton
-        )
-        print(f"  ProtoN GNN complete (took {time.time()-t0:.1f}s) | Rank-1: {proton_metrics['rank1']*100:.2f}% | EER: {proton_metrics['eer']*100:.2f}%")
-        for k, v in proton_metrics.items():
-            cv_results['ProtoN'][k].append(v)
+        if 'ProtoN' in args.models:
+            print("\n  Training ProtoN GNN...")
+            t0 = time.time()
+            proton_metrics = train_proton_fold(
+                train_samples, test_samples, num_classes, device,
+                config.get('proton', {}), args.epochs_proton
+            )
+            print(f"  ProtoN GNN complete (took {time.time()-t0:.1f}s) | Rank-1: {proton_metrics['rank1']*100:.2f}% | EER: {proton_metrics['eer']*100:.2f}%")
+            for k, v in proton_metrics.items():
+                cv_results['ProtoN'][k].append(v)
 
         # --- C. Hybrid ---
-        print("\n  Training Hybrid CNN-GNN (cached Phase 1 + E2E Phase 2)...")
-        t0 = time.time()
-        hybrid_metrics = train_hybrid_fold(
-            train_samples, test_samples, num_classes, device,
-            config.get('hybrid', {}), args.epochs_hybrid_p1, args.epochs_hybrid_p2,
-            config['preprocessing']['image_size'], cached_fmaps
-        )
-        print(f"  Hybrid complete (took {time.time()-t0:.1f}s) | Rank-1: {hybrid_metrics['rank1']*100:.2f}% | EER: {hybrid_metrics['eer']*100:.2f}%")
-        for k, v in hybrid_metrics.items():
-            cv_results['Hybrid'][k].append(v)
+        if 'Hybrid' in args.models:
+            print("\n  Training Hybrid CNN-GNN (cached Phase 1 + E2E Phase 2)...")
+            t0 = time.time()
+            hybrid_metrics = train_hybrid_fold(
+                train_samples, test_samples, num_classes, device,
+                config.get('hybrid', {}), args.epochs_hybrid_p1, args.epochs_hybrid_p2,
+                config['preprocessing']['image_size'], cached_fmaps
+            )
+            print(f"  Hybrid complete (took {time.time()-t0:.1f}s) | Rank-1: {hybrid_metrics['rank1']*100:.2f}% | EER: {hybrid_metrics['eer']*100:.2f}%", flush=True)
+            for k, v in hybrid_metrics.items():
+                cv_results['Hybrid'][k].append(v)
 
     # ── 5. Aggregate and Save Statistics ──────────────────────────────────────
     print("\n" + "="*70)
@@ -759,6 +767,8 @@ def main():
 
     summary_stats = {}
     for model_name, metrics in cv_results.items():
+        if not any(len(v) for v in metrics.values()):
+            continue  # model not selected via --models
         summary_stats[model_name] = {}
         print(f"\n  {model_name}:")
         for metric_name, values in metrics.items():
@@ -772,7 +782,7 @@ def main():
             print(f"    {metric_name:<6}: {mean_val*100:.2f}% \u00b1 {std_val*100:.2f}%")
 
     # Save to JSON
-    json_path = stats_dir / 'cross_validation_results.json'
+    json_path = stats_dir / args.out
     with open(json_path, 'w') as f:
         json.dump(summary_stats, f, indent=2)
     print(f"\n[INFO] Cross-validation results saved to {json_path}")
