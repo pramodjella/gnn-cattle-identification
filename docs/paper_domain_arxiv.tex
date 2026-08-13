@@ -396,32 +396,52 @@ models, with pairwise McNemar tests for significance (\Cref{tab:cv}).
 
 \begin{table}[t]
   \centering
-  \caption{5-fold cross-validation performance (reduced training budget).}
+  \caption{5-fold cross-validation performance. The Hybrid is now trained to
+  \emph{convergence} (150 cached + 30 end-to-end epochs per fold); the CNN and ProtoN rows
+  use a reduced budget (10 and 12 epochs), which is sufficient for those two models but
+  leaves their numbers slightly conservative.}
   \label{tab:cv}
   \small
-  \begin{tabular}{lcccc}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
     \toprule
-    Model & Rank-1 (\%) & Rank-5 (\%) & EER (\%) & ROC AUC \\
+    Model & Budget & Rank-1 (\%) & Rank-5 (\%) & EER (\%) & ROC AUC \\
     \midrule
-    \textbf{CNN (EfficientNet-B4)} & \textbf{93.91 $\pm$ 0.31} & \textbf{96.65 $\pm$ 0.45} & \textbf{3.21 $\pm$ 0.22} & \textbf{0.9940 $\pm$ 0.0017} \\
-    ProtoN GNN     & 89.49 $\pm$ 0.71 & 93.31 $\pm$ 0.52 & 4.10 $\pm$ 0.71 & 0.9911 $\pm$ 0.0027 \\
-    Hybrid CNN--GNN & 68.88 $\pm$ 2.04 & 84.22 $\pm$ 1.27 & 11.31 $\pm$ 1.47 & 0.9491 $\pm$ 0.0089 \\
+    \textbf{Hybrid CNN--GNN} & full & \textbf{95.52 $\pm$ 0.31} & \textbf{97.40 $\pm$ 0.27} & \textbf{0.49 $\pm$ 0.16} & \textbf{0.9998} \\
+    CNN (EfficientNet-B4) & reduced & 93.91 $\pm$ 0.31 & 96.65 $\pm$ 0.45 & 3.21 $\pm$ 0.22 & 0.9940 \\
+    ProtoN GNN & reduced & 89.49 $\pm$ 0.71 & 93.31 $\pm$ 0.52 & 4.10 $\pm$ 0.71 & 0.9911 \\
+    \midrule
+    \emph{Hybrid (12 ep., superseded)} & reduced & \emph{68.88 $\pm$ 2.04} & \emph{84.22 $\pm$ 1.27} & \emph{11.31 $\pm$ 1.47} & \emph{0.9491} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The cross-validation runs use a \emph{reduced} training budget (CNN 10 epochs, ProtoN 12,
-Hybrid 12) to keep the five-fold sweep tractable, whereas the single-split models in
-\Cref{tab:main} are trained to convergence (100--200 epochs). The CNN and ProtoN, which
-converge quickly, remain close to full-budget accuracy with low fold variance
-($\pm$0.31, $\pm$0.71), confirming stable generalisation. The Hybrid's two-phase schedule
-(cached backbone features $\to$ end-to-end fine-tuning) does \emph{not} converge within 12
-epochs, which is why its CV Rank-1 (68.9\%) falls far below its converged single-split value
-(92.0\%); the large fold variance ($\pm$2.04) reflects under-training, not architectural
-instability. We flag full-budget five-fold CV of the Hybrid as the primary remaining
-experiment before camera-ready, and draw no generalisation claim for the Hybrid from
-\Cref{tab:cv} in its reduced-budget form. McNemar tests on single-split predictions confirm
-the CNN's advantage over the pure GNNs is significant ($p<10^{-8}$).
+Our earlier cross-validation used a reduced budget for all models to keep the sweep
+tractable, and the Hybrid's two-phase schedule (cached backbone features $\to$ end-to-end
+fine-tuning) did not converge within it: the Hybrid scored only $68.88\pm2.04\%$, far below
+its converged single-split value, with a fold variance ($\pm$2.04) that invited the reading
+that the architecture is unstable. We have since re-run the Hybrid at \emph{full budget}
+(150 cached + 30 end-to-end epochs per fold, $\approx$82 minutes per fold on one RTX 5070).
+The result settles the question: Rank-1 rises from $68.88\pm2.04\%$ to
+$\mathbf{95.52\pm0.31\%}$ and EER falls from $11.31\%$ to $\mathbf{0.49\pm0.16\%}$, with the
+fold variance collapsing by a factor of six. The earlier number was an artefact of
+under-training, not instability, and the Hybrid generalises stably across folds.
+
+\paragraph{Why the cross-validated Hybrid exceeds its single-split value.} The full-budget CV
+Rank-1 ($95.52\%$) is higher than the Hybrid's single-split test result ($92.0\%$,
+\Cref{tab:main}), and we state the reasons rather than leave the discrepancy implicit. First,
+each fold trains on $80\%$ of the data versus $70\%$ for the single split --- roughly $14\%$
+more training images. Second, and more importantly, the two protocols select their final model
+differently: each CV fold trains for a fixed schedule and evaluates the \emph{final} model,
+whereas the single-split model is the best-validation-Rank-1 checkpoint, chosen on a small
+validation partition that averages only 2.4 images per identity and counts single-image
+identities as forced misses (\Cref{sec:data}). Selecting on that noisy signal can pick a
+checkpoint that is not the strongest on test. Neither protocol touches test data for model
+selection, so both numbers are honest; they simply answer different questions. We therefore
+keep \Cref{tab:main} (single split, matched to every other single-split result in this paper)
+as the headline and read \Cref{tab:cv} as evidence of \emph{stability across folds}. McNemar
+tests on single-split predictions confirm the CNN's advantage over the pure GNNs is
+significant ($p<10^{-8}$).
 
 \subsection{Open-Set Evaluation}\label{sec:openset}
 Closed-set Rank-1 assumes every probe is enrolled; deployments must also reject animals
@@ -613,6 +633,23 @@ is a useful negative result: for this problem, a single validation-tuned fusion 
 only simpler but strictly better than input-adaptive gating, mirroring our cross-domain
 finding (\Cref{sec:cross}) that robust improvements come from \emph{global} score calibration
 rather than fine-grained per-input adaptation.
+
+\paragraph{Control: recomputing keypoints from the corrupted image.} The protocol above
+corrupts the image but reuses keypoint coordinates detected on the \emph{clean} image, which
+is optimistic under occlusion --- the graph ``knows'' where undamaged structure used to be.
+We therefore repeat the two most severe conditions with the full pipeline rerun on the
+corrupted image: DISK re-detects keypoints and the $k$-NN graph is rebuilt, so no clean-image
+information reaches the graph (all 964 test graphs rebuilt successfully; no fallbacks). The
+effect is small and does not change any conclusion. Under blur-5 the Hybrid scores
+$84.9\%$ Rank-1 / $7.12\%$ EER with recomputed keypoints versus $84.0\%$ / $7.04\%$ with
+clean keypoints --- \emph{better} on Rank-1, since DISK simply returns fewer, higher-contrast
+points on a blurred image rather than mislocated ones. Under spatter-5, the occlusion case
+where we expected the largest bias, recomputation costs $2.7$ Rank-1 points
+($30.3\%\to27.6\%$) and $0.4$ EER points, confirming a mild optimistic bias in that condition
+but far too small to affect the ranking of fusion policies (the CNN and the val-tuned scalar
+both reach $65.2\%$ there, an order of magnitude above the Hybrid either way). We report the
+clean-keypoint protocol in \Cref{tab:corrupt} for comparability across all nine conditions and
+note this control as the honest bound on its optimism.
 
 \paragraph{Fusion ablations.} Two ablations from the plan sharpen the picture (clean test).
 (i) \emph{Which complement?} Replacing the Hybrid with the pure-graph \emph{ProtoN} in the
@@ -818,24 +855,28 @@ problem recoverable by unsupervised S-norm. We complement qualitative saliency w
 \emph{causal} explainability protocol --- statistically significant node- and region-ablation
 faithfulness for both branches, and a pathway intervention showing the Hybrid's provided graph
 geometry is causally inert (clean and corrupted) while identity rides on CNN texture ---
-finding the GNN distributes its identity decision across many keypoints. Remaining work before camera-ready is full-budget five-fold
-cross-validation of the Hybrid model and an ablation of the multi-scale node-sampling
-variant; longer-term directions include cross-farm domain adaptation and low-latency on-farm
-deployment.
+finding the GNN distributes its identity decision across many keypoints. Full-budget five-fold
+cross-validation confirms the Hybrid is stable across folds ($95.52\pm0.31\%$ Rank-1,
+\Cref{tab:cv}). Remaining work is an ablation of the multi-scale node-sampling variant and a
+session-disjoint split should richer capture metadata become available; longer-term
+directions include cross-farm domain adaptation and low-latency on-farm deployment.
 
 % ===========================================================================
 \section{Limitations}\label{sec:limitations}
 % ===========================================================================
-(i) The Hybrid model's cross-validation numbers (\Cref{tab:cv}) use a reduced training
-budget and under-report its converged performance; full-budget CV is pending. (ii) We
+(i) The CNN and ProtoN rows of \Cref{tab:cv} still use a reduced training budget, so those
+two cross-validated numbers are conservative relative to their converged single-split values;
+the Hybrid row is full-budget. (ii) We
 evaluate open-set identification under a model trained closed-set on all identities; the
 strict unseen-identity variant (retraining with unknown identities held out) is the natural
 next step. (iii) Cross-dataset transfer uses a muzzle detector to crop the two external
 sets; the detector missed roughly a third of images on the larger set, so those transfer
 numbers are a conservative lower bound. (iv) The corruption study perturbs the image while
 keypoint coordinates are taken from the clean graph, a small documented optimistic bias
-under occlusion; we additionally verify the two most severe cases with keypoints recomputed
-from the corrupted images (\Cref{sec:corrupt}). (v) The two GNN explainers we compare show
+under occlusion. We quantify this rather than leave it open: recomputing DISK keypoints from
+the corrupted images changes Rank-1 by $+0.9$ points under blur-5 and $-2.7$ points under
+spatter-5 (\Cref{sec:corrupt}), so the bias is real but small and confined to the occlusion
+condition. (v) The two GNN explainers we compare show
 low mutual rank agreement, so per-keypoint importance is indicative rather than definitive.
 (vi) The primary split is image-level: the dataset ships no session, capture-date, or camera
 metadata, so we cannot construct a session-disjoint split and cannot exclude

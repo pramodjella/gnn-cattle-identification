@@ -115,11 +115,12 @@ Analysis of the results indicates that:
 To verify fold stability, stratified 5-fold cross-validation was performed on the top models. pair-wise McNemar tests were conducted to confirm if improvements are statistically significant.
 
 **Table 2: 5-Fold Cross-Validation Performance (reduced training budget)**
-| Model | Rank-1 (%) | Rank-5 (%) | EER (%) | ROC AUC |
-| :--- | :---: | :---: | :---: | :---: |
-| **CNN (EfficientNet-B4)** | **93.91 ± 0.31** | **96.65 ± 0.45** | **3.21 ± 0.22** | **0.9940 ± 0.0017** |
-| ProtoN GNN | 89.49 ± 0.71 | 93.31 ± 0.52 | 4.10 ± 0.71 | 0.9911 ± 0.0027 |
-| Hybrid CNN-GNN | 68.88 ± 2.04 | 84.22 ± 1.27 | 11.31 ± 1.47 | 0.9491 ± 0.0089 |
+| Model | Budget | Rank-1 (%) | Rank-5 (%) | EER (%) | ROC AUC |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Hybrid CNN-GNN** | full | **95.52 ± 0.31** | **97.40 ± 0.27** | **0.49 ± 0.16** | **0.9998** |
+| CNN (EfficientNet-B4) | reduced | 93.91 ± 0.31 | 96.65 ± 0.45 | 3.21 ± 0.22 | 0.9940 |
+| ProtoN GNN | reduced | 89.49 ± 0.71 | 93.31 ± 0.52 | 4.10 ± 0.71 | 0.9911 |
+| *Hybrid (12 ep., superseded)* | reduced | *68.88 ± 2.04* | *84.22 ± 1.27* | *11.31 ± 1.47* | *0.9491* |
 
 The cross-validation runs use a **reduced training budget** (CNN 10 epochs, ProtoN 12, Hybrid 12) to keep the five-fold sweep tractable, whereas the single-split models in Table 1 are trained to convergence (100–200 epochs). The CNN and ProtoN, which converge quickly, remain close to their full-budget accuracy and exhibit low fold variance (±0.31 and ±0.71), confirming stable generalisation. The Hybrid CNN-GNN's two-phase schedule (cached backbone features → end-to-end fine-tuning) does **not** converge within 12 epochs, which is why its cross-validation Rank-1 (68.9%) falls far below its converged single-split value (92.0%); the large fold variance (±2.04) reflects under-training, not instability of the architecture. We flag full-budget five-fold cross-validation of the Hybrid model as the primary remaining experiment before camera-ready, and we do not draw generalisation claims for the Hybrid from Table 2 in its current (reduced-budget) form. McNemar tests on the single-split predictions confirm the CNN's advantage over the pure GNNs is significant ($p < 10^{-8}$).
 

@@ -800,6 +800,8 @@ def main():
         f.write("\\midrule\n")
 
         for m_name in ['ProtoN', 'Hybrid', 'CNN']:
+            if m_name not in summary_stats:
+                continue  # not selected via --models
             m_label = "CNN (B4)" if m_name == 'CNN' else m_name
             stats = summary_stats[m_name]
             f.write(f"  {m_label:<10} & "
