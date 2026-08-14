@@ -1,0 +1,29 @@
+{
+  "status": "PARTIAL - fold 1 of 5 only; NOT a cross-validation result",
+  "note": "Full-budget CV for CNN/ProtoN paused 2026-08-14 (~3h07m per fold, ~15.5h total). Do not cite these as CV numbers in the paper.",
+  "budget": {
+    "cnn_epochs": 150,
+    "proton_epochs": 200
+  },
+  "fold1": {
+    "CNN": {
+      "rank1": 0.9734,
+      "eer": 0.0005,
+      "train_seconds": 9591.0
+    },
+    "ProtoN": {
+      "rank1": 0.9438,
+      "eer": 0.01,
+      "train_seconds": 1642.5
+    }
+  },
+  "reduced_budget_cv_for_comparison": {
+    "CNN": {
+      "rank1": 0.9391
+    },
+    "ProtoN": {
+      "rank1": 0.8949
+    }
+  },
+  "resume": "see docs/RESUME_MONDAY.md"
+}
