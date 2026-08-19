@@ -128,6 +128,9 @@ def main():
         cnn_cfg = dict(cnn_cfg); cnn_cfg['use_mixup'] = False
     if '--ckpt-dir' in _sys.argv:
         cnn_cfg = dict(cnn_cfg); cnn_cfg['checkpoint_dir'] = _sys.argv[_sys.argv.index('--ckpt-dir') + 1]
+    # ablation runs must not clobber the paper's committed results file
+    _ck = str(cnn_cfg.get('checkpoint_dir', 'outputs/cnn')).rstrip('/').split('/')[-1]
+    _tag = '' if _ck == 'cnn' else '_' + _ck.replace('cnn_', '')
 
     epochs          = cnn_cfg.get('epochs', 104)  # Cycle 4 restart (ep105) causes NaN with ArcFace s=128
     batch_size      = cnn_cfg.get('batch_size', 16)
@@ -371,7 +374,7 @@ def main():
             'mixup': use_mixup, 'swa': use_swa, 'tta': use_tta,
             'label_smoothing': label_smoothing,
         },
-    }, str(PROJECT_ROOT / 'outputs/stats/cnn_results.json'))
+    }, str(PROJECT_ROOT / f'outputs/stats/cnn{_tag}_results.json'))
 
     print(f"\n✅ CNN results saved to outputs/stats/cnn_results.json")
 
