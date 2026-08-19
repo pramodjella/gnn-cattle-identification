@@ -53,8 +53,7 @@ module, and we evaluate \textbf{ProtoN}, a prototype-based node GNN. Our best si
 model (EfficientNet-B4 + ArcFace) reaches \textbf{95.4\% Rank-1}; a fusion weight
 \emph{selected on validation and applied unchanged to test} lifts this to
 \textbf{96.1\% Rank-1} while cutting the Equal Error Rate from 2.70\% to 0.78\%
-(3.5$\times$ better verification). The graph \emph{branch}'s principal contribution is thus
-to \emph{verification}, not closed-set ranking. A pathway-intervention study then sharpens
+(3.5$\times$ better verification). A control the literature usually omits, however, bounds what that means: fusing the same CNN with a \emph{non-graph} baseline (VGG-16) reduces EER by a statistically \emph{indistinguishable} amount (CIs $[+0.47,+2.63]$ vs $[+0.44,+2.48]$ points), so the verification gain is not graph-specific --- it reflects a poorly calibrated CNN that almost any better-calibrated partner repairs. What remains graph-specific is narrower, and we state it as such: of the partners tested, only the graph branch improves ranking \emph{and} verification simultaneously. A pathway-intervention study then sharpens
 \emph{why}, and yields an instructive negative result: randomising the graph edges, zeroing
 the geometric edge attributes, or shuffling the keypoint positions each changes Rank-1 by
 $\le0.5$ points, whereas zeroing the keypoint-sampled node features collapses it from
@@ -112,14 +111,7 @@ helps rather than assuming it does.
   backbone feature maps at keypoint coordinates via bilinear interpolation, combining rich
   texture features with topological reasoning; we add an optional multi-scale (FPN-style)
   sampling variant.
-  \item \textbf{Where graphs help --- and what actually carries the gain.} Rather than
-  claiming graphs beat CNNs on ranking, we quantify the graph branch's true contribution: a
-  validation-selected CNN+Hybrid blend cuts the Equal Error Rate 3.5$\times$
-  (2.70\%$\to$0.78\%), improving \emph{verification} while the CNN dominates closed-set
-  \emph{ranking}. Crucially, our pathway intervention shows this gain does \emph{not} come
-  from the explicit geometric topology --- destroying it is nearly free, while removing the
-  keypoint-sampled node features is catastrophic --- an instructive negative result for
-  graph-based biometrics.
+  \item \textbf{Where graphs help --- and, just as importantly, where they do not.} Rather than claiming graphs beat CNNs on ranking, we bound the graph branch's contribution with two controls that comparable studies typically omit. (i) A validation-selected CNN+Hybrid blend cuts the Equal Error Rate 3.5$\times$ (2.70\%$\to$0.78\%) --- but fusing the same CNN with a \emph{non-graph} baseline achieves a statistically indistinguishable reduction, so the verification gain is \emph{not} graph-specific (\Cref{tab:fusioncontrol}). What is specific is narrower: only the graph partner improves ranking and verification at once. (ii) A pathway intervention shows the gain does \emph{not} come from the explicit geometric topology --- randomising the edges consumed by the GATv2 relation module is nearly free, while removing the keypoint-sampled node features is catastrophic. Together these are an instructive negative result for graph-based biometrics.
   \item \textbf{Robustness and calibration.} We show zero-shot transfer to two independent
   datasets, recover the cross-domain verification gap with unsupervised S-norm, and --- in a
   controlled corruption study --- show a single validation-tuned fusion weight is the robust
@@ -355,6 +347,25 @@ and applied unchanged to test --- never tuned on test. The validation-selected w
 $w=0.95$, giving 96.1\% Rank-1 on test; the test-oracle weight is also 0.95, so the
 validation$\to$test selection gap is 0.00 points. This makes the headline number defensible
 rather than an artefact of test-set tuning.
+
+\paragraph{Is the verification gain graph-specific? A control.} The CNN's 2.70\% EER is the weakest of our strong models --- VGG-16 reaches 1.23\% and ProtoN 1.17\% standalone --- so a natural objection is that the blend simply repairs a poorly calibrated CNN, with the graph incidental. We test this directly by running the \emph{identical} validation-selected protocol against a non-graph partner (\Cref{tab:fusioncontrol}). The objection is largely correct. VGG-16 delivers an EER reduction statistically indistinguishable from the Hybrid's, and its validation sweep selects $w{=}0.00$ --- it discards our CNN altogether, because VGG-16 is already the better-calibrated verifier. We therefore do \emph{not} claim the verification gain as evidence for graph modelling. The narrower claim the data does support is that, among the partners tested, only the graph branch improves ranking \emph{and} verification simultaneously: VGG-16 leaves Rank-1 unchanged and ProtoN costs 1.55 Rank-1 points to buy its lower EER.
+
+\begin{table}[t]
+  \centering
+  \caption{Fusion control: the same validation-selected protocol with graph and non-graph partners. $\Delta$EER is the test-set reduction relative to the CNN alone (2.81\%), with a probe-level bootstrap 95\% CI. A non-graph partner matches the graph partner, so the verification gain is not graph-specific; only the Hybrid improves both metrics at once.}
+  \label{tab:fusioncontrol}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    Partner & std.\ EER & sel.\ $w$ & fused R-1 & fused EER & $\Delta$EER (pt, 95\% CI) \\
+    \midrule
+    \textbf{Hybrid (graph)} & 1.88 & 0.95 & \textbf{95.95} & 1.17 & $+1.65$ $[+0.44,+2.48]$ \\
+    ProtoN (graph) & 1.17 & 0.85 & 93.57 & \textbf{0.67} & $+2.14$ $[+0.50,+3.22]$ \\
+    VGG-16 (\emph{non-graph}) & 1.23 & 0.00 & 95.12 & 1.23 & $+1.58$ $[+0.47,+2.63]$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \paragraph{Verification protocol (how the EER is computed).} Because the 2.70\%$\to$0.78\%
 EER reduction is one of our strongest claims, we state the protocol exactly. Verification is
@@ -845,11 +856,7 @@ architectures for cattle muzzle biometric identification. Our best single model
 (EfficientNet-B4 + ArcFace) reaches 95.4\% Rank-1, and a validation-selected CNN+Hybrid
 blend attains \textbf{96.1\% Rank-1} with a \textbf{0.78\% EER} --- a 3.5$\times$ reduction
 in Equal Error Rate over the CNN alone. Rather than overclaiming that graphs surpass CNNs on
-ranking, we localise the graph branch's value to \emph{verification}, supported by the low
-standalone EERs of the pure GNNs and by a controlled corruption study --- while our pathway
-intervention shows, as an instructive negative result, that this value comes from the
-keypoint-sampled CNN features and feature-space message passing rather than from the
-explicit geometric graph we construct. We show
+ranking, we \emph{bound} the graph branch's value with two controls. A non-graph baseline fused into the same protocol matches the Hybrid's EER reduction (\Cref{tab:fusioncontrol}), so the verification gain is not graph-specific; what is specific is only that the graph partner improves ranking and verification together. And a pathway intervention shows, as an instructive negative result, that even this comes from the keypoint-sampled CNN features and feature-space message passing rather than from the explicit geometric graph we construct --- the GATv2 module that consumes that geometry can be fed random edges at almost no cost. We show
 the representation \emph{generalises zero-shot} to two separate muzzle datasets (97.0\% and
 87.0\% Rank-1, no fine-tuning; \Cref{sec:cross}) via a detector that doubles as the
 deployment front-end, and that the residual cross-domain verification gap is a calibration

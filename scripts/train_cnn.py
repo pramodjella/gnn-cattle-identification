@@ -120,6 +120,15 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     cnn_cfg = config.get('cnn', {})
+    # CLI overrides for controlled ablations (leave config untouched):
+    #   --no-mixup           disable mixup
+    #   --ckpt-dir <path>    redirect checkpoints (avoids clobbering the paper's model)
+    import sys as _sys
+    if '--no-mixup' in _sys.argv:
+        cnn_cfg = dict(cnn_cfg); cnn_cfg['use_mixup'] = False
+    if '--ckpt-dir' in _sys.argv:
+        cnn_cfg = dict(cnn_cfg); cnn_cfg['checkpoint_dir'] = _sys.argv[_sys.argv.index('--ckpt-dir') + 1]
+
     epochs          = cnn_cfg.get('epochs', 104)  # Cycle 4 restart (ep105) causes NaN with ArcFace s=128
     batch_size      = cnn_cfg.get('batch_size', 16)
     backbone_lr     = cnn_cfg.get('backbone_lr', 3e-5)
