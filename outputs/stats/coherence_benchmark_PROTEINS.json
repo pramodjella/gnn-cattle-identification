@@ -1,0 +1,117 @@
+{
+  "dataset": "PROTEINS",
+  "model": "GIN (3-layer)",
+  "test_acc": 0.7174887892376681,
+  "n_graphs": 210,
+  "frac": 0.3,
+  "explainers": {
+    "gradcam": {
+      "top": {
+        "dcosine": 0.242661714553833,
+        "dcosine_ci": [
+          0.21456152554069247,
+          0.27345413638012744
+        ],
+        "hop_coherence": 9.64340062910455
+      },
+      "bottom": {
+        "dcosine": 0.0759531781077385,
+        "dcosine_ci": [
+          0.06117549426498867,
+          0.09295772021015486
+        ],
+        "hop_coherence": 9.469472041441069
+      },
+      "random": {
+        "dcosine": 0.0562363900244236,
+        "dcosine_ci": [
+          0.04351532406040601,
+          0.07085271127167202
+        ],
+        "hop_coherence": 10.284524489639937
+      },
+      "random_block": {
+        "dcosine": 0.05540408939123154,
+        "dcosine_ci": [
+          0.04020958741505941,
+          0.07290220745972224
+        ],
+        "hop_coherence": 5.267221977853593
+      },
+      "passes_top_vs_random": true,
+      "passes_top_vs_bottom": true
+    },
+    "random": {
+      "top": {
+        "dcosine": 0.06271139532327652,
+        "dcosine_ci": [
+          0.05000404748888243,
+          0.0772505295915263
+        ],
+        "hop_coherence": 10.162553197642668
+      },
+      "bottom": {
+        "dcosine": 0.06040342152118683,
+        "dcosine_ci": [
+          0.04725018770212219,
+          0.07619578553807167
+        ],
+        "hop_coherence": 10.50252078662399
+      },
+      "random": {
+        "dcosine": 0.06348288059234619,
+        "dcosine_ci": [
+          0.048652279923359555,
+          0.08072577738336154
+        ],
+        "hop_coherence": 10.225912254680756
+      },
+      "random_block": {
+        "dcosine": 0.05103059858083725,
+        "dcosine_ci": [
+          0.03962694024755841,
+          0.06397827997803686
+        ],
+        "hop_coherence": 5.10880523472761
+      },
+      "passes_top_vs_random": false,
+      "passes_top_vs_bottom": false
+    },
+    "smoothed_random": {
+      "top": {
+        "dcosine": 0.04944167286157608,
+        "dcosine_ci": [
+          0.03596175342798233,
+          0.06585365682840347
+        ],
+        "hop_coherence": 9.406812697822211
+      },
+      "bottom": {
+        "dcosine": 0.05963221937417984,
+        "dcosine_ci": [
+          0.04434761957753272,
+          0.07767002809615361
+        ],
+        "hop_coherence": 9.578397794111243
+      },
+      "random": {
+        "dcosine": 0.06440524011850357,
+        "dcosine_ci": [
+          0.05038271161062377,
+          0.08010276633359134
+        ],
+        "hop_coherence": 10.296206141776015
+      },
+      "random_block": {
+        "dcosine": 0.047476544976234436,
+        "dcosine_ci": [
+          0.03535622387414887,
+          0.062122314941315405
+        ],
+        "hop_coherence": 5.110667654312702
+      },
+      "passes_top_vs_random": false,
+      "passes_top_vs_bottom": false
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "dataset": "MUTAG",
+  "model": "GIN (3-layer)",
+  "test_acc": 0.8421052631578947,
+  "n_graphs": 38,
+  "frac": 0.3,
+  "explainers": {
+    "gradcam": {
+      "top": {
+        "dcosine": 0.2076171338558197,
+        "dcosine_ci": [
+          0.14860027644195056,
+          0.27012034925191003
+        ],
+        "hop_coherence": 2.1644110275689226
+      },
+      "bottom": {
+        "dcosine": 0.025929048657417297,
+        "dcosine_ci": [
+          0.017622578496995726,
+          0.03599192382473692
+        ],
+        "hop_coherence": 3.772243107769423
+      },
+      "random": {
+        "dcosine": 0.22473874688148499,
+        "dcosine_ci": [
+          0.1570399111430896,
+          0.2953311930361547
+        ],
+        "hop_coherence": 3.6071428571428568
+      },
+      "random_block": {
+        "dcosine": 0.16582047939300537,
+        "dcosine_ci": [
+          0.10924434132481876,
+          0.2293963786410658
+        ],
+        "hop_coherence": 1.8583333333333336
+      },
+      "passes_top_vs_random": false,
+      "passes_top_vs_bottom": true
+    },
+    "random": {
+      "top": {
+        "dcosine": 0.22501297295093536,
+        "dcosine_ci": [
+          0.15935988849715182,
+          0.2942652727428234
+        ],
+        "hop_coherence": 3.7651002506265665
+      },
+      "bottom": {
+        "dcosine": 0.22561334073543549,
+        "dcosine_ci": [
+          0.15867117474737918,
+          0.29497487117585386
+        ],
+        "hop_coherence": 3.6380325814536336
+      },
+      "random": {
+        "dcosine": 0.22854453325271606,
+        "dcosine_ci": [
+          0.16059803668605654,
+          0.2981232061982154
+        ],
+        "hop_coherence": 3.834774436090225
+      },
+      "random_block": {
+        "dcosine": 0.15016432106494904,
+        "dcosine_ci": [
+          0.10337486137685023,
+          0.20064843038195054
+        ],
+        "hop_coherence": 1.8639724310776942
+      },
+      "passes_top_vs_random": false,
+      "passes_top_vs_bottom": false
+    },
+    "smoothed_random": {
+      "top": {
+        "dcosine": 0.16716575622558594,
+        "dcosine_ci": [
+          0.11635252790231453,
+          0.22074567185420735
+        ],
+        "hop_coherence": 3.27687969924812
+      },
+      "bottom": {
+        "dcosine": 0.18914644420146942,
+        "dcosine_ci": [
+          0.13192459780134655,
+          0.25137675404548643
+        ],
+        "hop_coherence": 3.561278195488722
+      },
+      "random": {
+        "dcosine": 0.2390155792236328,
+        "dcosine_ci": [
+          0.16869950525854763,
+          0.31284255734399746
+        ],
+        "hop_coherence": 3.7234335839598995
+      },
+      "random_block": {
+        "dcosine": 0.1559072881937027,
+        "dcosine_ci": [
+          0.1029293529689312,
+          0.21427182143456053
+        ],
+        "hop_coherence": 1.864473684210526
+      },
+      "passes_top_vs_random": false,
+      "passes_top_vs_bottom": false
+    }
+  }
+}
