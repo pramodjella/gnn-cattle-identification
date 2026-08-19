@@ -168,7 +168,10 @@ def hop_coherence(adj, idx, n):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--dataset', default='MUTAG', choices=['MUTAG', 'PROTEINS', 'ENZYMES'])
+    ap.add_argument('--dataset', default='MUTAG',
+                    choices=['MUTAG', 'PROTEINS', 'ENZYMES', 'MNISTSuperpixels'])
+    ap.add_argument('--max-graphs', type=int, default=400,
+                    help='cap test graphs (MNISTSuperpixels is huge)')
     ap.add_argument('--frac', type=float, default=0.30)
     ap.add_argument('--epochs', type=int, default=60)
     ap.add_argument('--seed', type=int, default=0)
@@ -177,13 +180,18 @@ def main():
     from torch_geometric.datasets import TUDataset
     rng = np.random.default_rng(args.seed)
     dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ds = TUDataset(root=str(PROJECT_ROOT / 'data/tudataset'), name=args.dataset).shuffle()
+    if args.dataset == 'MNISTSuperpixels':
+        from torch_geometric.datasets import MNISTSuperpixels
+        ds = MNISTSuperpixels(root=str(PROJECT_ROOT / 'data/mnist_superpix'), train=True)
+        ds = ds[:6000].shuffle()   # spatial k-NN graphs over superpixel centroids
+    else:
+        ds = TUDataset(root=str(PROJECT_ROOT / 'data/tudataset'), name=args.dataset).shuffle()
     print(f"[INFO] {args.dataset}: {len(ds)} graphs, {ds.num_features} feats, "
           f"{ds.num_classes} classes, avg nodes {ds[0].num_nodes}", flush=True)
 
     model, test_graphs, acc = train_gin(ds, dev, args.epochs, args.seed)
     model.eval()
-    graphs = [g for g in test_graphs if g.num_nodes >= 8]
+    graphs = [g for g in test_graphs if g.num_nodes >= 8][:args.max_graphs]
     if len(graphs) < 20:
         print('[ABORT] too few usable test graphs'); return
     print(f"[INFO] evaluating on {len(graphs)} test graphs", flush=True)
@@ -224,7 +232,12 @@ def main():
                 elif strat == 'random':
                     rem = rng.choice(n, size=k, replace=False)
                 else:
-                    rem = bfs_ball(a, int(rng.integers(n)), k, n)
+                    if getattr(g, 'pos', None) is not None:   # SPATIAL block (as in cattle)
+                        pp = g.pos[:, :2].cpu().numpy()
+                        sd = int(rng.integers(n))
+                        rem = np.argsort(np.linalg.norm(pp - pp[sd], axis=1))[:k]
+                    else:
+                        rem = bfs_ball(a, int(rng.integers(n)), k, n)
                 cohs.append(hop_coherence(a, rem, n))
                 drop = set(map(int, rem))
                 keep = torch.tensor([i for i in range(n) if i not in drop], dtype=torch.long)
