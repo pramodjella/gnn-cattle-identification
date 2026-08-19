@@ -711,48 +711,33 @@ prominent muzzle valleys.
   \label{fig:stage1}
 \end{figure}
 
-\paragraph{Stage 2 --- Causal ablation of both branches.}
-Qualitative maps are not evidence of causality. We ablate the highest-importance evidence and
-measure the effect on identity, comparing against random and low-importance removal; a causally
-faithful map implies \emph{top} $\gg$ \emph{random}. For the \textbf{GNN branch}
-(\Cref{tab:ablation}, 120 test graphs) we rank nodes by graph Grad-CAM importance and remove
-the top-/random-/bottom-$k\%$ for $k\in\{10,20,30\}$, reporting the identity-embedding shift
-($\Delta\cos = 1-\cos(\text{full},\text{ablated})$, with case-resampling 95\% bootstrap CIs)
-and the top-1 flip rate. The signal is clean and \emph{statistically significant}: removing
-the most important nodes perturbs the embedding $2$--$2.5\times$ more than random, and the
-top-vs-random $\Delta\cos$ CIs are non-overlapping at every $k$ (e.g.\ $k{=}30$:
-top $[0.090,0.124]$ vs.\ random $[0.035,0.053]$). For the \textbf{CNN branch}
-(\Cref{tab:ablation-cnn}, full 964-image test set) we compute Grad-CAM and mask the
-top-/random-/bottom-$k\%$ of $32\times32$ image regions: masking the most important regions
-causes the largest Rank-1 drop and identity flips at every $k$ (top-30\% $-5.0$ Rank-1 vs.\
-random $-2.3$; flip $12.3\%$ vs.\ $5.3\%$), again with non-overlapping $\Delta\cos$ CIs.
-Both branches' attributions are therefore causally faithful. One asymmetry is telling:
-sparse GNN node removal barely moves closed-set Rank-1 (identity is \emph{distributed} across
-many keypoints --- a global textural signature), whereas masking CNN regions produces a real,
-graded Rank-1 drop.
+\paragraph{Stage 2 --- Causal ablation, and a control that changes the conclusion.}
+Qualitative maps are not evidence of causality, so we ablate the highest-importance evidence and measure the effect on identity. Crucially, the contrast one chooses decides the answer. Most explanation studies report \emph{top} vs.\ \emph{random}; we argue the honest control is \emph{top} vs.\ \emph{bottom} --- remove the same \emph{number} of nodes, ranked least-important instead of most --- because top and bottom both delete a coherent extreme of the ranking whereas a random subset is scattered, and that difference alone perturbs a graph.
+
+For the \textbf{CNN branch} (\Cref{tab:ablation-cnn}, full 964-image test set) we compute Grad-CAM and mask the top-/random-/bottom-$k\%$ of $32\times32$ image regions. The attribution is faithful under \emph{both} contrasts: at $k{=}30$ masking the most important regions costs $5.0$ Rank-1 points versus $2.3$ for random and only $1.7$ for the least important, with flip rates $12.3\%$, $5.3\%$ and $5.7\%$. Removing what Grad-CAM calls important really does damage identity.
+
+For the \textbf{GNN branch} (\Cref{tab:ablation}) the same test gives a \emph{negative} result, and we report it as such. Re-running on the full 964-graph test set (our earlier 120-graph subset left most probes without a gallery mate and is superseded here), graph Grad-CAM passes the conventional top-vs-random test --- $\Delta\cos$ $0.105$ vs.\ $0.048$ at $k{=}30$, CIs disjoint --- but \emph{fails} the top-vs-bottom control: removing the 30\% \emph{least} important nodes yields $\Delta\cos = 0.100$ $[0.094,0.107]$ against $0.105$ $[0.099,0.112]$ for the most important, overlapping CIs, and flip rates that are indistinguishable ($8.2\%$ vs.\ $8.6\%$; at $k{=}10$ the \emph{bottom} set flips slightly \emph{more}). The ranking therefore carries little causal signal beyond ``removing a coherent block of nodes hurts''. We draw two conclusions. First, for this model per-keypoint graph attributions should not be used to justify claims about \emph{which} muzzle regions drive identity. Second, and more generally, top-vs-random is too weak a control for graph explanations: it would have certified an attribution that the stricter contrast rejects.
 
 \begin{table}[t]
   \centering
-  \caption{Causal node ablation, \textbf{GNN branch} (120 test graphs; 95\% bootstrap CI on
-  $\Delta\cos$). Removing Grad-CAM-\emph{important} (top) nodes shifts identity
-  $\sim$2--2.5$\times$ more than random --- CIs non-overlapping at every $k$.}
+  \caption{Causal node ablation, \textbf{GNN branch} (GNN v3; full 964-graph test set; 95\% bootstrap CI on $\Delta\cos$). Graph Grad-CAM passes the conventional top-vs-\emph{random} test at every $k$, but \emph{fails} the stricter top-vs-\emph{bottom} control (italics): removing the least important nodes is nearly as damaging as removing the most, with overlapping CIs at $k{=}20,30$ and indistinguishable flip rates. Compare \Cref{tab:ablation-cnn}, where the CNN attribution passes both.}
   \label{tab:ablation}
   \small
   \begin{tabular}{lcc}
     \toprule
     Removed nodes & $\Delta\cos$ $\uparrow$ (95\% CI) & top-1 flip (\%) \\
     \midrule
-    top 10\%    & \textbf{0.029} [0.022, 0.037] & \textbf{18.3} \\
-    random 10\% & 0.013 [0.010, 0.016] & 7.5 \\
-    bottom 10\% & 0.020 [0.016, 0.025] & 13.3 \\
+    top 10\%    & 0.029 [0.027, 0.032] & 3.9 \\
+    random 10\% & 0.014 [0.013, 0.015] & 3.4 \\
+    \emph{bottom} 10\% & \emph{0.022} [0.021, 0.025] & \emph{4.4} \\
     \midrule
-    top 20\%    & \textbf{0.065} [0.053, 0.078] & \textbf{23.3} \\
-    random 20\% & 0.028 [0.022, 0.036] & 14.2 \\
-    bottom 20\% & 0.052 [0.043, 0.064] & 23.3 \\
+    top 20\%    & 0.064 [0.060, 0.069] & 6.1 \\
+    random 20\% & 0.029 [0.027, 0.031] & 4.7 \\
+    \emph{bottom} 20\% & \emph{0.059} [0.055, 0.064] & \emph{6.2} \\
     \midrule
-    top 30\%    & \textbf{0.106} [0.090, 0.124] & 28.3 \\
-    random 30\% & 0.043 [0.035, 0.053] & 18.3 \\
-    bottom 30\% & 0.087 [0.072, 0.104] & 34.2 \\
+    top 30\%    & 0.105 [0.099, 0.112] & 8.6 \\
+    random 30\% & 0.048 [0.045, 0.052] & 6.2 \\
+    \emph{bottom} 30\% & \emph{0.100} [0.094, 0.107] & \emph{8.2} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -841,7 +826,7 @@ role as a verification-sharpening complement rather than a competitive ranker.
   \end{tabular}
 \end{table}
 
-Together these three stages make the explainability claims falsifiable and reproducible --- the
+Together these three stages make the explainability claims falsifiable and reproducible --- and two of the three return negative results, which is precisely the point of running them --- the
 standard we advocate for biometric-identification papers --- rather than decorative, and they
 paint a consistent mechanistic picture across \Cref{sec:main}, \Cref{sec:corrupt}, and
 \Cref{sec:explain}: the CNN texture pathway is the workhorse for identification, while the
@@ -884,7 +869,7 @@ under occlusion. We quantify this rather than leave it open: recomputing DISK ke
 the corrupted images changes Rank-1 by $+0.9$ points under blur-5 and $-2.7$ points under
 spatter-5 (\Cref{sec:corrupt}), so the bias is real but small and confined to the occlusion
 condition. (iv) The two GNN explainers we compare show
-low mutual rank agreement, so per-keypoint importance is indicative rather than definitive.
+low mutual rank agreement, and graph Grad-CAM additionally fails our top-vs-bottom ablation control (\Cref{tab:ablation}); per-keypoint graph importance should therefore be treated as \emph{unvalidated} for this model, not merely indicative. The CNN's image-space attributions do pass the same control.
 (v) The primary split is image-level: the dataset ships no session, capture-date, or camera
 metadata, so we cannot construct a session-disjoint split and cannot exclude
 acquisition-level similarity (same session/burst/camera) across splits. In-domain numbers
