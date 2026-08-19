@@ -298,7 +298,7 @@ rate.
     Model & Backbone / core & Params & Epochs & Emb. & Loss & LR head\,/\,bb. \\
     \midrule
     CNN & EfficientNet-B4 & 20.4\,M & 150 & 512 & ArcFace ($s$\,128, $m$\,0.35) & $10^{-3}$\,/\,$3{\cdot}10^{-5}$ \\
-    Hybrid & EffNet-B3 + EdgeConv + GATv2 & 15.0\,M & 200+50 & 512 & ArcFace ($s$\,96, $m$\,0.35) & $10^{-3}$\,/\,$10^{-5}$ \\
+    Hybrid & EffNet-B3 + EdgeConv + GATv2 & 15.0\,M & 200+50 & 256 & ArcFace ($s$\,64, $m$\,0.5) & $10^{-3}$\,/\,$10^{-5}$ \\
     ProtoN & GATv2 (4 layers, 4 heads) & 6.4\,M & 200 & 256 & Proto.\ + cross-graph align & $4{\cdot}10^{-4}$ \\
     GNN v3 & GATv2 + virtual node & 14.5\,M & 300 & 256 & ArcFace & $4{\cdot}10^{-4}$ \\
     \bottomrule
@@ -449,8 +449,7 @@ checkpoint that is not the strongest on test. Neither protocol touches test data
 selection, so both sets of numbers are honest; they simply answer different questions. We
 therefore keep \Cref{tab:main} (single split, matched to every other single-split result in
 this paper) as the headline and read \Cref{tab:cv} as evidence of \emph{stability across
-folds}. McNemar tests on single-split predictions confirm the CNN's advantage over the pure
-GNNs is significant ($p<10^{-8}$).
+folds}. Exact McNemar tests on \emph{per-probe} single-split predictions (\texttt{scripts/compute\_real\_mcnemar.py}) confirm the CNN's advantage over both graph models is significant: CNN vs.\ Hybrid $n_{10}{=}43$, $n_{01}{=}13$, $p{=}7.3\times10^{-5}$; CNN vs.\ ProtoN $n_{10}{=}53$, $n_{01}{=}19$, $p{=}7.6\times10^{-5}$. The Hybrid and ProtoN are, however, \emph{statistically indistinguishable} ($n_{10}{=}38$, $n_{01}{=}34$, $p{=}0.72$), so their ordering in \Cref{tab:main} should not be read as a real difference.
 
 \subsection{Open-Set Evaluation}\label{sec:openset}
 Closed-set Rank-1 assumes every probe is enrolled; deployments must also reject animals
@@ -780,13 +779,7 @@ zeroing the per-keypoint node features collapses Rank-1 from $92.0\%$ to $0.1\%$
 $1.88\%\to50.2\%$, i.e.\ chance), whereas destroying the provided graph topology (random
 edges), zeroing the geometric edge attributes, or permuting the keypoint positions each moves
 Rank-1 by $\le 0.5$ points. This is not an accident of the architecture but a direct
-consequence of it: the Dynamic EdgeConv rebuilds its neighbourhood graph in \emph{learned
-feature space} at every layer (so the static geometric edge set we supply is overridden),
-the default configuration does not consume edge attributes, and the permutation-invariant
-mean+max pooling makes the embedding invariant to any reindexing of the keypoints. In other
-words, on clean in-domain data the Hybrid's identity signal is carried almost entirely by the
-CNN texture sampled at keypoints and by feature-space message passing --- not by the input
-muzzle \emph{geometry}. The same pattern holds \emph{under corruption}: repeating the
+consequence of it: the two graph operators consume the supplied topology very differently. The Dynamic EdgeConv is called \emph{without} the geometric \texttt{edge{\_}index} and rebuilds its neighbourhood graph in \emph{learned feature space} at every layer, so it never sees our edges. The GATv2 Topological Relation Module, by contrast, \emph{does} receive them (\texttt{hybrid{\_}model.py}, step 4) --- and is precisely the component our intervention randomises. The correct reading of \Cref{tab:pathway} is therefore not that the geometry is \emph{overridden} but the sharper, less comfortable one: \textbf{the relation module that consumes it contributes essentially nothing to identity.} The remaining two null results are structural rather than empirical: the default configuration exposes no edge-attribute pathway, and mean+max pooling is permutation-invariant, so zeroing edge attributes and shuffling keypoint indices could not have moved the metric. In other words, on clean in-domain data the Hybrid's identity signal is carried almost entirely by the CNN texture sampled at keypoints and by feature-space message passing --- not by the input muzzle \emph{geometry}.
 intervention on the spatter-severity-3 test set, zeroing node features still collapses Rank-1
 ($56.8\%\to0.1\%$) while randomising edges, zeroing edge attributes, or shuffling positions
 each move it by $\le0.7$ points --- the geometry is inert whether the input is clean or

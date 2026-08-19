@@ -1,0 +1,35 @@
+{
+  "n_probes": 964,
+  "rank1": {
+    "CNN": 0.9512448132780082,
+    "Hybrid": 0.9201244813278008,
+    "ProtoN": 0.9159751037344398
+  },
+  "method": "exact binomial McNemar on per-probe closed-set Rank-1 correctness",
+  "tests": {
+    "CNN_vs_Hybrid": {
+      "n01": 13,
+      "n10": 43,
+      "n_discordant": 56,
+      "chi2_cc": 15.017857142857142,
+      "p_value": 7.333218396948782e-05,
+      "significant_0.05": true
+    },
+    "CNN_vs_ProtoN": {
+      "n01": 19,
+      "n10": 53,
+      "n_discordant": 72,
+      "chi2_cc": 15.125,
+      "p_value": 7.555811484431396e-05,
+      "significant_0.05": true
+    },
+    "Hybrid_vs_ProtoN": {
+      "n01": 34,
+      "n10": 38,
+      "n_discordant": 72,
+      "chi2_cc": 0.125,
+      "p_value": 0.7239481457469141,
+      "significant_0.05": false
+    }
+  }
+}
