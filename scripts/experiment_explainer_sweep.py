@@ -32,11 +32,12 @@ from src.utils import load_config, save_stats
 from src.evaluation.faithfulness import _subgraph
 from src.models.explainability import GradCAMGraph
 from scripts.evaluate_explainability import (
-    load_gnn, gradcam_importance, rollout_importance, _last_gat_layer_name)
+    load_gnn, gradcam_importance, rollout_importance, _last_gat_layer_name, _prep)
+from src.models.explainability import GNNExplainerWrapper
 from scripts.experiment_causal_ablation import load_test_graphs, embed, bootstrap_ci
 from scripts.experiment_coherence_control import select_removal, coherence, node_positions
 
-EXPLAINERS = ['gradcam', 'rollout', 'random', 'smoothed_random']
+EXPLAINERS = ['gradcam', 'rollout', 'random', 'smoothed_random']  # + 'gnnexplainer' via --with-gnnexplainer
 STRATEGIES = ['top', 'bottom', 'random', 'random_block']
 
 
@@ -53,7 +54,10 @@ def smoothed_random_importance(data, rng, k=8):
     return torch.tensor(raw[nb].mean(1), dtype=torch.float)
 
 
-def get_importance(kind, model, g, dev, gc, rng):
+def get_importance(kind, model, g, dev, gc, rng, gnnexp=None):
+    if kind == 'gnnexplainer':
+        node_imp, _ = gnnexp.explain_graph(_prep(g, dev))
+        return node_imp.detach().cpu()
     if kind == 'gradcam':
         return gradcam_importance(gc, g, dev).detach().cpu()
     if kind == 'rollout':
@@ -68,12 +72,33 @@ def main():
     ap.add_argument('--model', default='gnn_v3')
     ap.add_argument('--num-graphs', type=int, default=400)
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--with-gnnexplainer', action='store_true',
+                    help='add GNNExplainer (slow: gradient mask optimisation per graph)')
+    ap.add_argument('--gnnexplainer-epochs', type=int, default=60)
     args = ap.parse_args()
 
     rng = np.random.default_rng(args.seed); torch.manual_seed(args.seed)
     cfg = load_config(); dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     graphs, meta = load_test_graphs(cfg)
-    model = load_gnn(args.model, cfg, dev, meta['num_classes'])
+    # NOTE: load_gnn() falls back to gnn_v3's checkpoint_dir when config has no key for the
+    # requested model, which SILENTLY loads the wrong weights. Load explicitly instead.
+    from src.models.gnn_v3 import CattleGNNv3
+    if args.model == 'gnn_v4':
+        # gnn_v4 is architecturally distinct (see scripts/train_gnn_v4_enhanced.py):
+        # hidden=128 x 8 heads = 1024-d head_out, 4 layers.
+        _v4 = cfg.get('gnn_v4', {})
+        model = CattleGNNv3(input_dim=256, hidden_dim=_v4.get('hidden_dim', 128),
+                            num_heads=_v4.get('num_heads', 8),
+                            num_layers=_v4.get('num_layers', 4))
+    else:
+        model = CattleGNNv3(config=cfg)
+    if hasattr(model, 'set_num_classes'):
+        model.set_num_classes(meta['num_classes'])
+    _ckp = PROJECT_ROOT / f'outputs/{args.model}/best_model.pt'
+    _st = torch.load(_ckp, map_location=dev, weights_only=False)
+    model.load_state_dict(_st['model_state_dict'])
+    model = model.to(dev).eval()
+    print(f'[INFO] loaded {args.model} epoch={_st.get("epoch")} from {_ckp}', flush=True)
     gc = GradCAMGraph(model, target_layer_name=_last_gat_layer_name(model))
 
     idx = rng.choice(len(graphs), size=min(args.num_graphs, len(graphs)), replace=False)
@@ -84,10 +109,16 @@ def main():
     full_pred = labels[Sf.argmax(1)]
     print(f"[INFO] {len(subset)} graphs\n", flush=True)
 
+    explainers = list(EXPLAINERS)
+    gnnexp = None
+    if args.with_gnnexplainer:
+        gnnexp = GNNExplainerWrapper(model, epochs=args.gnnexplainer_epochs)
+        explainers.append('gnnexplainer')
+
     out = {'model': args.model, 'n': len(subset), 'frac': 0.30, 'explainers': {}}
     FRAC = 0.30
-    for kind in EXPLAINERS:
-        imps = [get_importance(kind, model, g, dev, gc, rng) for g in subset]
+    for kind in explainers:
+        imps = [get_importance(kind, model, g, dev, gc, rng, gnnexp) for g in subset]
         res = {}
         for strat in STRATEGIES:
             embs, cohs = [], []
@@ -115,8 +146,9 @@ def main():
               f"top>bottom: {'PASS' if res['passes_top_vs_bottom'] else 'fail'}", flush=True)
     gc.remove_hooks()
 
-    save_stats(out, str(PROJECT_ROOT / 'outputs/stats/explainer_sweep.json'))
-    print('\nSaved -> outputs/stats/explainer_sweep.json')
+    _sfx = '' if args.model == 'gnn_v3' else '_' + args.model
+    save_stats(out, str(PROJECT_ROOT / f'outputs/stats/explainer_sweep{_sfx}.json'))
+    print(f'\nSaved -> outputs/stats/explainer_sweep{_sfx}.json')
 
 
 if __name__ == '__main__':
