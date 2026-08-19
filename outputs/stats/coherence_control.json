@@ -1,0 +1,138 @@
+{
+  "model": "gnn_v3",
+  "n": 964,
+  "hypothesis": "random_block ~ top would show the top-vs-random test is a coherence artefact",
+  "conditions": {
+    "top_10": {
+      "dcosine": 0.029144829139113426,
+      "dcosine_ci": [
+        0.02660997844923334,
+        0.031850993727561845
+      ],
+      "top1_flip": 0.03941908713692946,
+      "mean_pairwise_dist_removed": 0.19187045041703585
+    },
+    "bottom_10": {
+      "dcosine": 0.02244015783071518,
+      "dcosine_ci": [
+        0.020555480991594523,
+        0.02459396188499027
+      ],
+      "top1_flip": 0.043568464730290454,
+      "mean_pairwise_dist_removed": 0.2549669007109903
+    },
+    "random_10": {
+      "dcosine": 0.013684897683560848,
+      "dcosine_ci": [
+        0.012597356514070044,
+        0.014911576920030522
+      ],
+      "top1_flip": 0.03423236514522822,
+      "mean_pairwise_dist_removed": 0.3507497296881132
+    },
+    "random_block_10": {
+      "dcosine": 0.02645549178123474,
+      "dcosine_ci": [
+        0.024160407834466067,
+        0.029030317660127435
+      ],
+      "top1_flip": 0.044605809128630707,
+      "mean_pairwise_dist_removed": 0.10512895897587306
+    },
+    "top_20": {
+      "dcosine": 0.0642642006278038,
+      "dcosine_ci": [
+        0.059559625572683406,
+        0.06905991830148142
+      ],
+      "top1_flip": 0.061203319502074686,
+      "mean_pairwise_dist_removed": 0.24396605416359496
+    },
+    "bottom_20": {
+      "dcosine": 0.05914794281125069,
+      "dcosine_ci": [
+        0.054901100132475254,
+        0.06363277102499829
+      ],
+      "top1_flip": 0.06224066390041494,
+      "mean_pairwise_dist_removed": 0.28146275011552074
+    },
+    "random_20": {
+      "dcosine": 0.029171722009778023,
+      "dcosine_ci": [
+        0.027175128719618705,
+        0.031408903797261446
+      ],
+      "top1_flip": 0.046680497925311204,
+      "mean_pairwise_dist_removed": 0.34910868657018634
+    },
+    "random_block_20": {
+      "dcosine": 0.06611403822898865,
+      "dcosine_ci": [
+        0.0613351176295785,
+        0.07128753458223155
+      ],
+      "top1_flip": 0.07157676348547717,
+      "mean_pairwise_dist_removed": 0.14851574049451044
+    },
+    "top_30": {
+      "dcosine": 0.10532787442207336,
+      "dcosine_ci": [
+        0.09905940792774512,
+        0.1115777341873072
+      ],
+      "top1_flip": 0.08609958506224066,
+      "mean_pairwise_dist_removed": 0.26736230553896845
+    },
+    "bottom_30": {
+      "dcosine": 0.10026754438877106,
+      "dcosine_ci": [
+        0.09430790326067273,
+        0.10684376774487159
+      ],
+      "top1_flip": 0.08195020746887967,
+      "mean_pairwise_dist_removed": 0.2963012973101678
+    },
+    "random_30": {
+      "dcosine": 0.047750018537044525,
+      "dcosine_ci": [
+        0.044387161062404326,
+        0.05124036856150231
+      ],
+      "top1_flip": 0.058091286307053944,
+      "mean_pairwise_dist_removed": 0.3479712206978521
+    },
+    "random_block_30": {
+      "dcosine": 0.10368061810731888,
+      "dcosine_ci": [
+        0.09718427523754197,
+        0.11023634276449433
+      ],
+      "top1_flip": 0.08609958506224066,
+      "mean_pairwise_dist_removed": 0.17872022314932337
+    }
+  },
+  "verdict": {
+    "k10": {
+      "top_dcos": 0.029144829139113426,
+      "random_block_dcos": 0.02645549178123474,
+      "random_dcos": 0.013684897683560848,
+      "block_matches_top(CIs overlap)": true,
+      "block_exceeds_random": true
+    },
+    "k20": {
+      "top_dcos": 0.0642642006278038,
+      "random_block_dcos": 0.06611403822898865,
+      "random_dcos": 0.029171722009778023,
+      "block_matches_top(CIs overlap)": true,
+      "block_exceeds_random": true
+    },
+    "k30": {
+      "top_dcos": 0.10532787442207336,
+      "random_block_dcos": 0.10368061810731888,
+      "random_dcos": 0.047750018537044525,
+      "block_matches_top(CIs overlap)": true,
+      "block_exceeds_random": true
+    }
+  }
+}
